@@ -113,6 +113,23 @@ excluded from precaching. A first online visit must finish preparing the cache.
 Updates activate after existing app tabs close; user data remains in Drift.
 The development server does not provide offline reopening.
 
+## GitHub Pages
+
+Live app: https://jhombalz.github.io/selah/
+
+The Pages workflow builds and tests the app on pushes to `main`, then deploys
+the web release with `/selah/` as its base path and offline preparation enabled.
+Repository Settings → Pages uses GitHub Actions as the deployment source.
+To reproduce the Pages build locally:
+
+```powershell
+.\tools\build-web.cmd --base-href /selah/
+```
+
+Browser data is separate for localhost and the published site. Use Backup &
+restore to move your notes, bookmarks and reading progress; download optional
+translations again on the published site.
+
 ## Local storage
 
 `lib/data/user_database.dart` owns a versioned Drift schema with preferences,
