@@ -1,0 +1,12 @@
+{
+  "source": "https://ebible.org/Scriptures/cebocb_vpl.zip",
+  "rangeSource": "https://ebible.org/Scriptures/cebocb_usfx.zip",
+  "copyrightSource": "https://ebible.org/cebocb/copyright.htm",
+  "sourceDate": "2025-04-30",
+  "importDate": "2026-11-07",
+  "books": 66,
+  "chapters": 1189,
+  "verseEntries": 30552,
+  "sourceSha256": "1c1816754908b0ed4b11275157aa27eca6a52464b6602c7ce2bc2befe77ae84e",
+  "outputSha256": "ee6f9a6e6f20de8f8d7d484e05bf81fd8f24e5a44204e67a9384c1f1a657b78f"
+}

@@ -1,0 +1,10 @@
+﻿{
+    "styles":  [
+                   "Regular",
+                   "Bold",
+                   "Italic"
+               ],
+    "revision":  "80d3f8894c09c937bebfa9011247d2e1c79fd6f4",
+    "license":  "SIL Open Font License 1.1",
+    "repository":  "https://github.com/adobe-fonts/source-serif"
+}

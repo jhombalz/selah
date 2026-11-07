@@ -1,0 +1,38 @@
+name: selah
+description: An offline-first Cebuano Bible companion. Pause. Reflect. Grow.
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+dependencies:
+  archive: ^4.6.0
+  crypto: ^3.0.8
+  drift: ^2.35.3
+  drift_flutter: ^0.3.1
+  file_picker: ^13.3.2
+  flutter:
+    sdk: flutter
+  http: ^1.6.0
+  just_audio: ^0.10.6
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/bible/cebocb.json
+    - assets/bible/LICENSE.txt
+    - assets/fonts/source-serif-4/OFL.txt
+    - assets/audio/web.json
+    - assets/audio/bsb.json
+    - assets/bible/tglulb-LICENSE.txt
+  fonts:
+    - family: SourceSerif4
+      fonts:
+        - asset: assets/fonts/source-serif-4/SourceSerif4-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/source-serif-4/SourceSerif4-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/source-serif-4/SourceSerif4-It.ttf
+          style: italic
