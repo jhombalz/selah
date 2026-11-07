@@ -4,7 +4,7 @@ const path = require('node:path');
 const {createHash} = require('node:crypto');
 const root = path.resolve(process.argv[2] || 'build/web');
 const required = ['index.html', 'main.dart.js', 'flutter_bootstrap.js',
-  'flutter.js', 'manifest.json', 'sqlite3.wasm', 'drift_worker.js'];
+  'flutter.js', 'manifest.json', 'sqlite3.wasm', 'drift_worker.js', 'selah-mark.svg', 'favicon.png'];
 const files = [...required];
 function walk(relative) {
   for (const entry of fs.readdirSync(path.join(root, relative), {withFileTypes:true})) {

@@ -10,6 +10,7 @@ import 'data/bible_search.dart';
 import 'features/search/search_page.dart';
 import 'features/reader/passage_picker.dart';
 import 'features/reader/chapter_completion_card.dart';
+import 'features/branding/selah_brand.dart';
 import 'data/translations.dart';
 import 'features/translations/translations_page.dart';
 import 'data/scripture_range.dart';
@@ -381,7 +382,7 @@ class _SelahAppState extends State<SelahApp> {
     } catch (_) {
       if (mounted) {
         setState(() => loadError =
-            'THE BIBLE or local storage could not be opened. Please retry. Your stored data has not been reset.');
+            'SELAH or local storage could not be opened. Please retry. Your stored data has not been reset.');
       }
     }
   }
@@ -569,7 +570,7 @@ class _SelahAppState extends State<SelahApp> {
         navigatorKey: navigatorKey,
         scaffoldMessengerKey: messengerKey,
         debugShowCheckedModeBanner: false,
-        title: 'THE BIBLE',
+        title: 'SELAH',
         theme: theme(Brightness.light),
         darkTheme: theme(Brightness.dark),
         themeMode: dark ? ThemeMode.dark : ThemeMode.light,
@@ -620,10 +621,8 @@ class _SelahAppState extends State<SelahApp> {
                           title: readerToolbar(context),
                         )
                       : AppBar(
-                          title: const Text(
-                            'THE BIBLE',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
+                          toolbarHeight: 72,
+                          title: const SelahBrand(),
                           actions: [
                             IconButton(
                               tooltip: dark ? 'Light theme' : 'Dark theme',
@@ -818,11 +817,11 @@ class _SelahAppState extends State<SelahApp> {
               fontSize: 11,
               color: Theme.of(context).colorScheme.primary)),
       const SizedBox(height: 20),
-      const Text('A little stillness.\nA deeper connection.',
+      const Text('Pause here.\nGrow in the Word.',
           style:
               TextStyle(fontFamily: 'SourceSerif4', fontSize: 36, height: 1.2)),
       const SizedBox(height: 16),
-      const Text('Make space for the Word, one chapter at a time.'),
+      const Text('Find a quiet moment with Scripture, one chapter at a time.'),
       const SizedBox(height: 28),
       Card(
           child: Padding(
@@ -1563,8 +1562,8 @@ class _SelahAppState extends State<SelahApp> {
             ),
             const SizedBox(height: 32),
             TextButton(
-              onPressed: () => showLicensePage(
-                  context: context, applicationName: 'THE BIBLE'),
+              onPressed: () =>
+                  showLicensePage(context: context, applicationName: 'SELAH'),
               child: const Text('Font & app licenses'),
             ),
             TextButton(

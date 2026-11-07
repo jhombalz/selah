@@ -1,6 +1,11 @@
-# THE BIBLE
+# SELAH
 
 Pause. Reflect. Grow.
+
+SELAH uses an original open-book-and-sun mark in forest green, warm cream and
+gold. The header wordmark uses the bundled Source Serif 4 font. The vector
+source is `web/selah-mark.svg`; the matching Flutter mark is drawn locally and
+the browser favicon and installation icons are included in the web release.
 
 A Flutter Bible application for Android, with web and iOS project scaffolding.
 The current reader includes an English interface, light/dark themes, adjustable
