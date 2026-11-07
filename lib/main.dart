@@ -617,7 +617,7 @@ class _SelahAppState extends State<SelahApp> {
                       ? AppBar(
                           automaticallyImplyLeading: false,
                           titleSpacing: 16,
-                          toolbarHeight: 64,
+                          toolbarHeight: 72,
                           title: readerToolbar(context),
                         )
                       : AppBar(
@@ -1071,37 +1071,75 @@ class _SelahAppState extends State<SelahApp> {
   Widget readerToolbar(BuildContext context) => Center(
           child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800),
-        child: Row(children: [
-          IconButton(
-              tooltip: 'Search Bible',
-              onPressed: () => selectPage(2),
-              icon: const Icon(Icons.search)),
-          const Spacer(),
-          const SizedBox(width: 10),
-          Tooltip(
-              message: bible!.title,
-              child: OutlinedButton(
-                key: const ValueKey('translation-picker'),
-                onPressed: () => manageTranslations(context),
-                child: Text(bible!.abbreviation,
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w600)),
-              )),
-          const SizedBox(width: 8),
-          Tooltip(
-              message: 'Adjust text size',
-              child: OutlinedButton(
-                key: const ValueKey('text-size'),
-                style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(48, 44),
-                    padding: EdgeInsets.zero,
-                    side: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant)),
-                onPressed: () => adjustText(context),
-                child: const Text('AA',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-              )),
-        ]),
+        child: Container(
+            key: const ValueKey('reader-toolbar'),
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .outlineVariant
+                        .withValues(alpha: .45))),
+            child: Row(children: [
+              Expanded(
+                  child: Tooltip(
+                      message: 'Choose a book and chapter',
+                      child: TextButton(
+                          onPressed: () => pickPassage(context),
+                          style: TextButton.styleFrom(
+                              minimumSize: const Size(0, 44),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 10),
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.onSurface),
+                          child: Row(children: [
+                            Expanded(
+                                child: Text(
+                                    '${bible!.books[bookIndex].name} ${chapterIndex + 1}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600))),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.keyboard_arrow_down_rounded,
+                                size: 20),
+                          ])))),
+              IconButton(
+                  tooltip: 'Search Bible',
+                  onPressed: () => selectPage(2),
+                  icon: const Icon(Icons.search_rounded, size: 22)),
+              const SizedBox(width: 4),
+              Tooltip(
+                  message: bible!.title,
+                  child: FilledButton.tonal(
+                    key: const ValueKey('translation-picker'),
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size(56, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16))),
+                    onPressed: () => manageTranslations(context),
+                    child: Text(bible!.abbreviation,
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600)),
+                  )),
+              const SizedBox(width: 6),
+              Tooltip(
+                  message: 'Adjust text size',
+                  child: TextButton(
+                    key: const ValueKey('text-size'),
+                    style: TextButton.styleFrom(
+                        minimumSize: const Size(44, 44),
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16))),
+                    onPressed: () => adjustText(context),
+                    child: const Text('AA',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                  )),
+            ])),
       ));
 
   Widget reader(BuildContext context) {
@@ -1213,8 +1251,7 @@ class _SelahAppState extends State<SelahApp> {
     final navigation = Material(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       elevation: readerControlsVisible ? 3 : 0,
-      borderRadius:
-          BorderRadius.circular(readerControlsVisible || hasAudio ? 40 : 0),
+      borderRadius: BorderRadius.circular(40),
       clipBehavior: Clip.antiAlias,
       child: Row(children: [
         chapterArrow(context,
@@ -1249,9 +1286,7 @@ class _SelahAppState extends State<SelahApp> {
           child: Padding(
             padding: readerControlsVisible
                 ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
-                : hasAudio
-                    ? const EdgeInsets.all(8)
-                    : EdgeInsets.zero,
+                : const EdgeInsets.all(8),
             child: Row(children: [
               if (hasAudio) ...[
                 AudioPlayButton(
