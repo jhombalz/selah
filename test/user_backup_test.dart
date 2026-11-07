@@ -19,6 +19,7 @@ void main() {
       UserData(
         preferences: const {
           'dark': 'true',
+          'audioFollow': 'false',
           'fontSize': '28',
           'translation': 'asv',
           'lastChapter': 'GEN.1',

@@ -66,11 +66,16 @@ class RecordedAudioCatalog {
 
 class AudioSignal {
   final bool playing, loading, completed, failed;
+  final Duration? position, duration;
+  final bool progressOnly;
   const AudioSignal(
       {this.playing = false,
       this.loading = false,
       this.completed = false,
-      this.failed = false});
+      this.failed = false,
+      this.position,
+      this.duration,
+      this.progressOnly = false});
 }
 
 abstract class ChapterAudioBackend {
@@ -88,13 +93,27 @@ class StreamingAudioBackend implements ChapterAudioBackend {
   final events = StreamController<AudioSignal>.broadcast();
   late final StreamSubscription<PlayerState> states;
   late final StreamSubscription<PlayerException> errors;
+  late final StreamSubscription<Duration> positions;
+  late final StreamSubscription<Duration?> durations;
   StreamingAudioBackend() {
     states = player.playerStateStream.listen((state) => events.add(AudioSignal(
           playing: state.playing,
           loading: state.processingState == ProcessingState.loading ||
               state.processingState == ProcessingState.buffering,
           completed: state.processingState == ProcessingState.completed,
+          position: player.position,
+          duration: player.duration,
         )));
+    void progress() => events.add(AudioSignal(
+        progressOnly: true,
+        position: player.position,
+        duration: player.duration));
+    positions = player
+        .createPositionStream(
+            minPeriod: const Duration(milliseconds: 500),
+            maxPeriod: const Duration(milliseconds: 500))
+        .listen((_) => progress());
+    durations = player.durationStream.listen((_) => progress());
     errors = player.errorStream
         .listen((_) => events.add(const AudioSignal(failed: true)));
   }
@@ -117,6 +136,8 @@ class StreamingAudioBackend implements ChapterAudioBackend {
   Future<void> dispose() async {
     await states.cancel();
     await errors.cancel();
+    await positions.cancel();
+    await durations.cancel();
     await player.dispose();
     await events.close();
   }
@@ -137,6 +158,12 @@ class ChapterAudioController extends ChangeNotifier {
   ChapterAudioStatus status = ChapterAudioStatus.idle;
   String? error;
   String? _scope;
+  String? get scope => _scope;
+  Duration position = Duration.zero;
+  Duration duration = Duration.zero;
+  double? get progress => duration.inMicroseconds > 0
+      ? (position.inMicroseconds / duration.inMicroseconds).clamp(0.0, 1.0)
+      : null;
   Uri? _loaded;
   bool _completed = false;
   bool _acceptSignals = false;
@@ -160,6 +187,8 @@ class ChapterAudioController extends ChangeNotifier {
     _acceptSignals = false;
     _loaded = null;
     _catalog = null;
+    position = Duration.zero;
+    duration = Duration.zero;
     if (_backend != null) {
       _stopping = _backend!.stop().catchError((Object _) {});
     }
@@ -173,6 +202,12 @@ class ChapterAudioController extends ChangeNotifier {
         if (_disposed || !_acceptSignals) return;
         if (signal.failed) {
           _failed();
+          return;
+        }
+        if (signal.position != null) position = signal.position!;
+        if (signal.duration != null) duration = signal.duration!;
+        if (signal.progressOnly) {
+          _emit();
           return;
         }
         if (signal.completed) {
@@ -237,6 +272,7 @@ class ChapterAudioController extends ChangeNotifier {
         _loaded = url;
         _completed = false;
       } else if (_completed) {
+        position = Duration.zero;
         await backend.rewind();
         _completed = false;
       }
@@ -258,6 +294,8 @@ class ChapterAudioController extends ChangeNotifier {
     _scope = null;
     _loaded = null;
     _completed = false;
+    position = Duration.zero;
+    duration = Duration.zero;
     status = ChapterAudioStatus.idle;
     error = null;
     _emit();

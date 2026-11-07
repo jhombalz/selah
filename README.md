@@ -77,6 +77,12 @@ stops playback; a new chapter never autoplays. OCCB, Tagalog ULB and ASV do not 
 another translation's recording. Settings → Audio narration shows attribution
 and the note that this older WEB recording can differ from the updated text.
 Audio does not mark chapters completed and has no offline download mode.
+Follow audio scrolls through the Scripture portion using playback position and
+duration. This is an approximate chapter-level aid, not verified verse timing.
+Manual scrolling suspends following; Resume auto-scroll beside the player
+continues it. Auto-scroll can be disabled there or in Settings → Follow audio.
+The preference is saved locally and included in backups. Pausing, buffering,
+errors, chapter changes and leaving Read stop automatic movement.
 
 The project-local Flutter SDK is installed under `.tools/flutter` and excluded
 from version control. In PowerShell, from this directory:
@@ -87,7 +93,7 @@ from version control. In PowerShell, from this directory:
 
 ## Verification
 
-Flutter 3.47.9 / Dart 3.13.7: 44 tests pass, including audio catalog
+Flutter 3.47.9 / Dart 3.13.7: 46 tests pass, including audio catalog
 coverage, play/pause/replay, stale-load cancellation and retries, backup validation,
 merge/replace conflict handling, transaction rollback and confirmation, touch/mouse range
 selection, autoscroll and partial highlight editing, complete WEB/BSB/ULB/ASV package

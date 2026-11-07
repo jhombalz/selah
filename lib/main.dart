@@ -33,8 +33,13 @@ class SelahApp extends StatefulWidget {
   final Bible? initialBible;
   final UserDatabase? database;
   final UserData? initialData;
+  final ChapterAudioController? audioController;
   const SelahApp(
-      {super.key, this.initialBible, this.database, this.initialData});
+      {super.key,
+      this.initialBible,
+      this.database,
+      this.initialData,
+      this.audioController});
 
   @override
   State<SelahApp> createState() => _SelahAppState();
@@ -54,18 +59,132 @@ class _SelahAppState extends State<SelahApp> {
   final noteTranslations = <String, String>{};
   final verseAnchors = <String, GlobalKey>{};
   String? selectedPassage;
-  final chapterAudio = ChapterAudioController();
+  late final chapterAudio = widget.audioController ?? ChapterAudioController();
+  bool followAudio = true;
+  bool audioFollowSuspended = false;
+  bool audioScrollAnimating = false;
+  int audioScrollGeneration = 0;
+  String? audioFollowScope;
+  ChapterAudioStatus lastAudioStatus = ChapterAudioStatus.idle;
+  DateTime? lastAudioPositionSave;
   final messengerKey = GlobalKey<ScaffoldMessengerState>();
   String? lastAudioError;
 
   void audioChanged() {
     if (!mounted) return;
-    setState(() {});
+    if (audioFollowScope != chapterAudio.scope) {
+      audioFollowScope = chapterAudio.scope;
+      audioFollowSuspended = false;
+      lastAudioPositionSave = null;
+    }
+    if (lastAudioStatus != chapterAudio.status ||
+        lastAudioError != chapterAudio.error) {
+      setState(() {});
+    }
+    lastAudioStatus = chapterAudio.status;
+    if (!chapterAudio.playing) {
+      if (audioScrollAnimating && readerScroll.hasClients) {
+        audioScrollGeneration++;
+        readerScroll.jumpTo(readerScroll.offset);
+        audioScrollAnimating = false;
+        saveAudioPosition();
+      }
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => scrollWithAudio());
+      WidgetsBinding.instance.ensureVisualUpdate();
+    }
     if (chapterAudio.error != null && chapterAudio.error != lastAudioError) {
       messengerKey.currentState
           ?.showSnackBar(SnackBar(content: Text(chapterAudio.error!)));
     }
     lastAudioError = chapterAudio.error;
+  }
+
+  void saveAudioPosition() {
+    if (!mounted || page != 1 || bible == null || !readerScroll.hasClients) {
+      return;
+    }
+    resumeOffset = readerScroll.offset;
+    final values = {
+      'lastChapter': chapterReference,
+      'scrollOffset': '$resumeOffset'
+    };
+    save(() => database.setPreferences(values));
+    lastAudioPositionSave = DateTime.now();
+  }
+
+  void scrollWithAudio() {
+    if (!mounted ||
+        page != 1 ||
+        !followAudio ||
+        audioFollowSuspended ||
+        !chapterAudio.playing ||
+        selectedPassage != null ||
+        bible == null ||
+        (navigatorKey.currentState?.canPop() ?? false) ||
+        chapterAudio.scope != '${bible!.id}:$chapterReference' ||
+        !readerScroll.hasClients) {
+      return;
+    }
+    final progress = chapterAudio.progress;
+    if (progress == null) return;
+    final verses = bible!.books[bookIndex].chapters[chapterIndex];
+    final prefix = chapterReference;
+    final first = verseAnchors['$prefix.${verses.first.number}']
+        ?.currentContext
+        ?.findRenderObject();
+    final last = verseAnchors['$prefix.${verses.last.number}']
+        ?.currentContext
+        ?.findRenderObject();
+    final viewport =
+        readerScroll.position.context.notificationContext?.findRenderObject();
+    if (first is! RenderBox ||
+        last is! RenderBox ||
+        viewport is! RenderBox ||
+        !first.hasSize ||
+        !last.hasSize ||
+        !viewport.hasSize) {
+      return;
+    }
+    final origin = viewport.localToGlobal(Offset.zero).dy;
+    final start =
+        readerScroll.offset + first.localToGlobal(Offset.zero).dy - origin;
+    final end = readerScroll.offset +
+        last.localToGlobal(Offset(0, last.size.height)).dy -
+        origin;
+    final target =
+        (start + (end - start) * progress - viewport.size.height * .28)
+            .clamp(0.0, readerScroll.position.maxScrollExtent);
+    if ((target - readerScroll.offset).abs() < 1) return;
+    final generation = ++audioScrollGeneration;
+    audioScrollAnimating = true;
+    unawaited(readerScroll
+        .animateTo(target,
+            duration: const Duration(milliseconds: 450), curve: Curves.linear)
+        .whenComplete(() {
+      if (!mounted || generation != audioScrollGeneration) return;
+      audioScrollAnimating = false;
+      if (lastAudioPositionSave == null ||
+          DateTime.now().difference(lastAudioPositionSave!).inSeconds >= 5) {
+        saveAudioPosition();
+      }
+    }));
+  }
+
+  void toggleAudioFollowing({bool? enabled}) {
+    enabled ??= !followAudio || audioFollowSuspended;
+    setState(() {
+      followAudio = enabled!;
+      audioFollowSuspended = false;
+    });
+    if (!enabled && audioScrollAnimating && readerScroll.hasClients) {
+      audioScrollGeneration++;
+      readerScroll.jumpTo(readerScroll.offset);
+      audioScrollAnimating = false;
+      saveAudioPosition();
+    }
+    save(() => database.setPreferences({'audioFollow': '$enabled'}));
+    if (enabled) scrollWithAudio();
   }
 
   Future<void> audioInfo(BuildContext context) async {
@@ -209,6 +328,7 @@ class _SelahAppState extends State<SelahApp> {
         data.highlights.map((key, value) => MapEntry(key, Color(value))));
     history = data.history;
     dark = data.preferences['dark'] == 'true';
+    followAudio = data.preferences['audioFollow'] != 'false';
     fontSize = (double.tryParse(data.preferences['fontSize'] ?? '') ?? 21)
         .clamp(16, 32);
     resumeOffset =
@@ -1181,6 +1301,11 @@ class _SelahAppState extends State<SelahApp> {
                     if (notification.depth != 0) return false;
                     final direction = notification.direction;
                     if (direction == ScrollDirection.idle) return false;
+                    if (chapterAudio.playing && !audioFollowSuspended) {
+                      setState(() => audioFollowSuspended = true);
+                      audioScrollGeneration++;
+                      audioScrollAnimating = false;
+                    }
                     final show = direction == ScrollDirection.forward;
                     if (readerControlsVisible != show) {
                       setState(() => readerControlsVisible = show);
@@ -1189,7 +1314,9 @@ class _SelahAppState extends State<SelahApp> {
                   },
                   child: NotificationListener<ScrollEndNotification>(
                     onNotification: (notification) {
-                      if (selectedPassage != null) return false;
+                      if (selectedPassage != null || audioScrollAnimating) {
+                        return false;
+                      }
                       resumeOffset = notification.metrics.pixels
                           .clamp(0, notification.metrics.maxScrollExtent);
                       final values = {
@@ -1287,21 +1414,43 @@ class _SelahAppState extends State<SelahApp> {
             padding: readerControlsVisible
                 ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
                 : const EdgeInsets.all(8),
-            child: Row(children: [
-              if (hasAudio) ...[
-                AudioPlayButton(
-                    playing: chapterAudio.playing,
-                    loading: chapterAudio.loading,
-                    label: chapterAudio.playing
-                        ? 'Pause ${bible!.abbreviation} audio'
-                        : chapterAudio.status == ChapterAudioStatus.paused
-                            ? 'Resume ${bible!.abbreviation} audio · Internet required'
-                            : 'Play ${bible!.abbreviation} audio · Internet required',
-                    onPressed: () => chapterAudio.toggle(
-                        bible!.id, book.id, chapterIndex + 1)),
-                const SizedBox(width: 8),
-              ],
-              Expanded(child: navigation),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (hasAudio &&
+                  (chapterAudio.playing ||
+                      chapterAudio.status == ChapterAudioStatus.paused))
+                Align(
+                    alignment: Alignment.centerRight,
+                    child: Tooltip(
+                        message:
+                            'Approximate chapter progress, without verse timing. Scrolling manually pauses following.',
+                        child: TextButton.icon(
+                            onPressed: toggleAudioFollowing,
+                            icon: Icon(
+                                followAudio && !audioFollowSuspended
+                                    ? Icons.sync_rounded
+                                    : Icons.vertical_align_center_rounded,
+                                size: 18),
+                            label: Text(audioFollowSuspended
+                                ? 'Resume auto-scroll'
+                                : followAudio
+                                    ? 'Auto-scroll on'
+                                    : 'Auto-scroll off')))),
+              Row(children: [
+                if (hasAudio) ...[
+                  AudioPlayButton(
+                      playing: chapterAudio.playing,
+                      loading: chapterAudio.loading,
+                      label: chapterAudio.playing
+                          ? 'Pause ${bible!.abbreviation} audio'
+                          : chapterAudio.status == ChapterAudioStatus.paused
+                              ? 'Resume ${bible!.abbreviation} audio · Internet required'
+                              : 'Play ${bible!.abbreviation} audio · Internet required',
+                      onPressed: () => chapterAudio.toggle(
+                          bible!.id, book.id, chapterIndex + 1)),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(child: navigation),
+              ])
             ]),
           ),
         )));
@@ -1575,6 +1724,17 @@ class _SelahAppState extends State<SelahApp> {
               trailing: const Icon(Icons.info_outline),
               onTap: () => audioInfo(context),
             ),
+            SwitchListTile(
+                secondary: const Icon(Icons.unfold_more_rounded),
+                title: const Text('Follow audio'),
+                subtitle: const Text(
+                    'Scroll with chapter playback. Approximate timing; manual scrolling pauses following.'),
+                value: followAudio,
+                onChanged: (value) {
+                  if (value != followAudio) {
+                    toggleAudioFollowing(enabled: value);
+                  }
+                }),
             SwitchListTile(
               title: const Text('Dark theme'),
               value: dark,
