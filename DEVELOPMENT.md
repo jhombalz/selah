@@ -12,6 +12,12 @@ No accounts or cloud sync in version one.
 
 ## Stages
 
+Stages 1–7 below record the foundation work. The next proposed stages are
+[Phases 8–13: Scripture, prayer, and daily life](docs/spiritual-growth-roadmap.md).
+Start with Phase 8, **My time with God**: Pause → Read → Reflect → Pray → Live.
+The roadmap also evaluates the owner's Mood & Circumstance Mapping document
+and identifies which features fit SELAH, need adaptation, or should be deferred.
+
 1. Foundation: responsive reader, forest/cream theme, dark mode, font controls,
    session-only bookmark, highlight, and note interactions. Source created.
 2. Project-local Flutter 3.47.9 / Dart 3.13.7 installed in `.tools/flutter`;
@@ -67,8 +73,21 @@ Tagalog ULB or ASV, and playback never substitutes a different translation.
 BSB and Tagalog ULB downloads retain required credits; their full canon, native
 SQLite reopen, source-note provenance and backup round trips are tested.
 Language filters and large-text layouts at phone/tablet/desktop sizes are checked.
-Daily verses rotate offline through 31 passages in the selected translation.
-Offline audio, reading plans, devotionals, and sync are deferred. 43 tests pass.
+Daily verses now use an online random reference with a whole-Bible local
+fallback, shown in the selected translation and cached by local day. Schema v3
+adds a separate daily-verse cache. Offline audio and sync remain deferred.
+Guided reflection, prayer, and reviewed thematic content are proposed in the
+new roadmap; they are not implemented yet. The latest checked suite has 55
+passing tests.
+
+Android releases through v0.1.3 have been built and published. Android launcher
+and splash branding are implemented. Optional Android Focus Mode includes
+chosen apps, configurable daily reading minutes, a reading gate, and a timer
+that pauses outside the eligible Bible reader. Emulator checks covered the
+blocking flow, pause conditions, and goal completion. See
+[Focus Mode](docs/android-focus-mode.md). Broader real-device coverage and iOS
+validation remain outstanding; earlier stage notes about pending packaging
+describe the state when those stages were first recorded.
 
 ## Current preview limitations
 
@@ -77,7 +96,7 @@ Books opens full-screen below 840 px and in a centered dialog above that width.
 The current book is highlighted and scrolled into view; selecting a book shows
 its chapter grid. Search is available from the Books toolbar. Back/cancel leaves
 the current passage unchanged. AA text-size controls remain in the reader toolbar.
-43 tests pass, including backup validation/restoration, range gestures, autoscroll, highlight range
+55 tests pass, including backup validation/restoration, range gestures, autoscroll, highlight range
 editing, Books-to-chapter navigation, and translation flows.
 
 Complete Cebuano Scripture is bundled as a read-only asset. No API is needed
