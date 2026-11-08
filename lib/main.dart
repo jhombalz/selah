@@ -1711,6 +1711,27 @@ class _SelahAppState extends State<SelahApp> {
                           ),
                         ),
                         TextSpan(text: bible!.verse(verse).text),
+                        if (relatedReferences(verse, notes.keys).isNotEmpty)
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: IconButton(
+                              key: ValueKey('verse-note-$verse'),
+                              tooltip: 'Open note',
+                              iconSize: 18,
+                              visualDensity: VisualDensity.compact,
+                              color: Theme.of(context).colorScheme.primary,
+                              onPressed: () {
+                                final references =
+                                    relatedReferences(verse, notes.keys);
+                                if (references.length == 1) {
+                                  annotate(references.first);
+                                } else {
+                                  showVerseActions(context, verse);
+                                }
+                              },
+                              icon: const Icon(Icons.sticky_note_2_outlined),
+                            ),
+                          ),
                       ],
                     ),
                     style: TextStyle(
@@ -1721,11 +1742,6 @@ class _SelahAppState extends State<SelahApp> {
                   ),
                   if (relatedReferences(verse, saved).isNotEmpty)
                     const Icon(Icons.bookmark, size: 16),
-                  for (final reference in relatedReferences(verse, notes.keys))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text('Reflection: ${notes[reference]}'),
-                    ),
                 ],
               ),
             ),

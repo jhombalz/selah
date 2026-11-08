@@ -2,7 +2,7 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.1.2](https://github.com/jhombalz/selah/releases/download/v0.1.2/selah-v0.1.2-android.apk)
+[Download SELAH Android v0.1.3](https://github.com/jhombalz/selah/releases/download/v0.1.3/selah-v0.1.3-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
 
@@ -35,6 +35,9 @@ The selected range is highlighted while dragging; holding near a reading edge
 scrolls to extend it. Release to bookmark, write a reflection, or highlight the
 range. Touch and held mouse gestures are supported. Recoloring/removing part of
 a highlight preserves its color outside the selected verses.
+In the reader, notes appear as small tappable icons beside Scripture instead
+of inline reflection text. A range note opens its original range when tapped;
+overlapping notes can be chosen from the verse actions.
 Scripture uses locally bundled Source Serif 4 (regular/bold/italic) from Adobe,
 licensed under SIL OFL 1.1. The license is available in Settings → Font & app
 licenses. No online font service is required when reading.

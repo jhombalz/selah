@@ -150,6 +150,12 @@ void main() {
     expect(find.text('Write a note'), findsNothing);
     final data = await tester.runAsync(database.load);
     expect(data!.notes['GEN.1.1'], 'A moment of gratitude.');
+    expect(find.textContaining('Reflection:'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('verse-note-GEN.1.1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit your note'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'A moment of gratitude.');
   });
 
   testWidgets('Search opens the matching verse and retains the query on return',
