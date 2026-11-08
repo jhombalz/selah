@@ -2,6 +2,10 @@
 
 Pause. Reflect. Grow.
 
+[Download SELAH Android v0.1.1](https://github.com/jhombalz/selah/releases/download/v0.1.1/selah-v0.1.1-android.apk)
+— universal release-mode APK, signed with the current development key for
+personal testing. Install over the previous APK to keep local data.
+
 SELAH uses an original open-book-and-sun mark in forest green, warm cream and
 gold. The header wordmark uses the bundled Source Serif 4 font. The vector
 source is `web/selah-mark.svg`; the matching Flutter mark is drawn locally and

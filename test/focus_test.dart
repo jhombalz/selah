@@ -91,4 +91,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(selection, {'social.app', 'video.app'});
   });
+
+  testWidgets(
+      'unfinished timer stays on pushed pages and completion preserves navigation',
+      (tester) async {
+    state.addAll({'enabled': true, 'remainingSeconds': 300});
+    await controller.refresh();
+    await tester.pumpWidget(MaterialApp(
+      builder: (context, child) =>
+          FocusTimerFrame(controller: controller, child: child!),
+      home: Builder(
+          builder: (context) => Scaffold(
+                  body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                        builder: (_) =>
+                            const Scaffold(body: Text('Another page')))),
+                child: const Text('Open page'),
+              ))),
+    ));
+    expect(find.text('05:00 left · Timer paused'), findsOneWidget);
+    await tester.tap(find.text('Open page'));
+    await tester.pumpAndSettle();
+    expect(find.text('Another page'), findsOneWidget);
+    expect(find.text('05:00 left · Timer paused'), findsOneWidget);
+    state.addAll({'completed': true, 'remainingSeconds': 0});
+    await controller.refresh();
+    await tester.pumpAndSettle();
+    expect(find.byType(ReadingGoalBanner), findsNothing);
+    expect(find.text('Another page'), findsOneWidget);
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Open page'), findsOneWidget);
+    state.addAll({'completed': false, 'enabled': false});
+    await controller.refresh();
+    await tester.pump();
+    expect(find.byType(ReadingGoalBanner), findsNothing);
+  });
 }

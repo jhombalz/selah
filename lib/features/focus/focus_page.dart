@@ -300,6 +300,35 @@ class _FocusAppPickerState extends State<FocusAppPicker> {
       ]));
 }
 
+/// Keeps the navigator mounted when the daily timer appears or completes.
+class FocusTimerFrame extends StatelessWidget {
+  final FocusController controller;
+  final Widget child;
+  const FocusTimerFrame(
+      {super.key, required this.controller, required this.child});
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+      animation: controller,
+      child: child,
+      builder: (context, navigator) {
+        final visible = controller.available &&
+            controller.status.enabled &&
+            !controller.status.completed;
+        return Column(children: [
+          Expanded(
+              child: MediaQuery.removePadding(
+                  context: context, removeBottom: visible, child: navigator!)),
+          if (visible)
+            Material(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                child: SafeArea(
+                    top: false,
+                    child: ReadingGoalBanner(controller: controller))),
+        ]);
+      });
+}
+
 class ReadingGoalBanner extends StatelessWidget {
   final FocusController controller;
   const ReadingGoalBanner({super.key, required this.controller});
@@ -327,10 +356,10 @@ class ReadingGoalBanner extends StatelessWidget {
                               : '${status.countdown} left · ${status.reading ? 'Reading time' : 'Timer paused'}',
                           style: const TextStyle(fontSize: 12))),
                   if (!status.protected && !status.completed)
-                    const Tooltip(
-                        message:
-                            'Accessibility service is not active; selected apps cannot be blocked.',
-                        child: Icon(Icons.info_outline, size: 18)),
+                    const Icon(Icons.info_outline,
+                        size: 18,
+                        semanticLabel:
+                            'Accessibility service is not active; selected apps cannot be blocked.'),
                 ])));
       });
 }

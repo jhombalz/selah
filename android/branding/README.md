@@ -12,6 +12,11 @@ and GitHub Pages assets are separate and unchanged.
   `values-night-v31`; the foreground artwork stays within the icon safe zone.
 - Earlier Android: centered logo on a forest-green launch background.
 
+The splash uses `selah_splash_icon.xml`, with the SELAH name beneath the book
+inside the Android 12 icon safe area. It is separate from the launcher icon.
+Regenerate its Source Serif 4 letter outlines on Windows with
+`tools/generate-android-splash.ps1`; the font remains covered by its bundled OFL.
+
 The Android manifest uses `ic_launcher` and `ic_launcher_round`; installation,
 the launcher, app information, and supported task switchers use those resources.
 Install a rebuilt APK over the current app to receive new native icons.

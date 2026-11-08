@@ -754,6 +754,8 @@ class _SelahAppState extends State<SelahApp> {
         theme: theme(Brightness.light),
         darkTheme: theme(Brightness.dark),
         themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+        builder: (context, child) => FocusTimerFrame(
+            controller: focus, child: child ?? const SizedBox.shrink()),
         home: LayoutBuilder(
           builder: (context, constraints) {
             scheduleFocusSync();
@@ -1329,7 +1331,6 @@ class _SelahAppState extends State<SelahApp> {
     final completed = history
         .any((entry) => entry.reference == chapterReference && entry.completed);
     return Column(children: [
-      if (focusAvailable && focusEnabled) ReadingGoalBanner(controller: focus),
       Expanded(
           child: centered(PassageSelectionLayer(
               key: ValueKey('select-${bible!.id}-$chapterReference'),

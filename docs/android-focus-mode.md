@@ -11,6 +11,11 @@ Opening a selected app before completing the goal displays a reading gate.
 countdown. Progress is cumulative throughout the day. Selected apps unlock
 when the goal is met, and a new goal starts at local midnight.
 
+The unfinished countdown is visible across all SELAH pages, including pushed
+settings pages. It shows a paused state outside the Bible reader and disappears
+when the daily goal is complete or Focus Mode is disabled. The reading gate
+offers Read in SELAH and Back to Home; Focus settings remain in SELAH Settings.
+
 Only time with the Bible reader visible, SELAH focused, and the screen
 unlocked counts. Settings, dialogs, app switching, background audio, and
 screen-off time pause progress. This measures reader screen time, not proof

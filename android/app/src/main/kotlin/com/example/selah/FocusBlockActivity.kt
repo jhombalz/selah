@@ -66,7 +66,6 @@ class FocusBlockActivity : Activity() {
         }
         button("Read in SELAH", true) { openSelah(MainActivity.FOCUS_READ) }
         button("Back to Home", false) { goHome() }
-        button("Focus settings", false) { openSelah(MainActivity.FOCUS_SETTINGS) }
         setContentView(ScrollView(this).apply { isFillViewport = true; addView(layout) })
     }
 
