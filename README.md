@@ -2,7 +2,7 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.1.3](https://github.com/jhombalz/selah/releases/download/v0.1.3/selah-v0.1.3-android.apk)
+[Download SELAH Android v0.2.0](https://github.com/jhombalz/selah/releases/download/v0.2.0/selah-v0.2.0-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
 
@@ -55,6 +55,28 @@ SQLite runtime for offline reopening after initial online preparation. HTTPS
 (or localhost) is required. Browser storage/cache can still be cleared or evicted.
 Mobile offline behavior still requires device testing.
 
+## My time with God
+
+Home and Saved now open a local guided journey: **Pause → Read → Reflect → Pray
+→ Live**. Start with your current chapter or choose Anxiety, Stress, Grief,
+Loneliness, or Joy. Fifteen original English passage guides provide context,
+a reflection question, a suggested prayer, and a practical invitation. They
+open Scripture in the selected Bible rather than substituting another edition.
+Every step can be skipped. Drafts autosave, and completing a session never
+automatically completes a Bible chapter or measures faith.
+
+The prayer journal supports titles, categories, personal statuses, dated updates,
+and unfinished update drafts. Session reflections remain separate from verse
+notes. Backup format v2 includes sessions and prayers and still imports older
+v1 backups. Schema v4 upgrades without resetting existing records.
+
+Android reminders are opt-in, use generic notification text, and may be delayed
+by Android battery management. Sharing previews exactly which Scripture,
+reflection, prayer, or response is selected; private writing starts unchecked.
+Use the share button in a session or Share passage in verse actions.
+No accounts or AI API are required. See [the guided journey guide](docs/guided-journey.md)
+for privacy, content review, setup, and verification details.
+
 ## Translations
 
 Use the reader's edition button or Settings → Bible translations. Cebuano is
@@ -80,7 +102,7 @@ Downloads show progress, allow cancellation, and validate the ZIP, pinned text
 checksum, and complete canon before installation. A failed download does not
 replace an installed edition. Browser downloads are same-origin packages under
 `web/translations`; Android/iOS download the vetted eBible packages directly.
-The existing user database upgrades non-destructively to schema version 3.
+The existing user database upgrades non-destructively to schema version 4.
 The daily verse cache is separate from exported user annotations.
 
 ## Run locally
@@ -108,7 +130,9 @@ from version control. In PowerShell, from this directory:
 
 ## Verification
 
-Flutter 3.47.9 / Dart 3.13.7: 48 tests pass, including audio catalog
+Flutter 3.47.9 / Dart 3.13.7: 63 tests pass, including guided-session navigation,
+journal persistence, legacy and journal backup restoration, repeat avoidance,
+private share previews, and audio catalog
 coverage, play/pause/replay, stale-load cancellation and retries, backup validation,
 merge/replace conflict handling, transaction rollback and confirmation, touch/mouse range
 selection, autoscroll and partial highlight editing, complete WEB/BSB/ULB/ASV package
@@ -121,11 +145,13 @@ backup restoration across a full browser process restart. Responsive checks at
 in Chrome. Offline Home and Scripture reopening were checked in release Chrome
 with the network disabled and HTTP cache disabled.
 The release web build passes (with an existing Cupertino icon-font warning).
-Android and iOS builds are not verified.
+Android debug/release builds and the guided reading flow are verified on an
+Android 12 emulator. Native reminder enable/schedule/notification/disable and
+the Android share chooser are checked separately. iOS builds remain unverified.
 Compiled web files are in `build/web`.
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for the staged implementation plan and
-current limitations. Native device validation remains pending.
+current limitations. Broader real-device validation remains pending.
 
 Build a web release with offline preparation:
 

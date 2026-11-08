@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'dart:convert';
+import 'growth_entry.dart';
 
 class ReadingEntry {
   final String reference;
@@ -15,13 +17,15 @@ class UserData {
   final Map<String, int> highlights;
   final List<ReadingEntry> history;
   final Map<String, String> noteTranslations;
+  final List<GrowthEntry> growth;
   const UserData(
       {this.preferences = const {},
       this.bookmarks = const {},
       this.notes = const {},
       this.highlights = const {},
       this.history = const [],
-      this.noteTranslations = const {}});
+      this.noteTranslations = const {},
+      this.growth = const []});
 }
 
 /// Explicit SQL schema managed by Drift. User content is separate from Scripture.
@@ -44,7 +48,7 @@ class UserDatabase extends GeneratedDatabase {
       ));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
   @override
   Iterable<TableInfo<Table, dynamic>> get allTables => const [];
   @override
@@ -67,10 +71,40 @@ class UserDatabase extends GeneratedDatabase {
     )''');
         await createTranslations();
         await createDailyVerseCache();
+        await createGrowth();
       }, onUpgrade: (migrator, from, to) async {
         if (from < 2) await createTranslations();
         if (from < 3) await createDailyVerseCache();
+        if (from < 4) await createGrowth();
       });
+
+  Future<void> createGrowth() async {
+    await customStatement(
+        'CREATE TABLE growth_entries (id TEXT PRIMARY KEY, content TEXT NOT NULL)');
+    await customStatement(
+        'CREATE TABLE growth_seen (card_id TEXT PRIMARY KEY, seen_at INTEGER NOT NULL)');
+  }
+
+  Future<List<GrowthEntry>> growthEntries() async => [
+        for (final row
+            in await customSelect('SELECT content FROM growth_entries').get())
+          GrowthEntry.fromJson(
+              jsonDecode(row.read<String>('content')) as Map<String, dynamic>)
+      ]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+  Future<void> saveGrowth(GrowthEntry entry) => customStatement(
+      'INSERT INTO growth_entries (id, content) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET content=excluded.content',
+      [entry.id, jsonEncode(entry.toJson())]);
+  Future<void> deleteGrowth(String id) =>
+      customStatement('DELETE FROM growth_entries WHERE id = ?', [id]);
+  Future<Map<String, DateTime>> growthSeen() async => {
+        for (final row in await customSelect('SELECT * FROM growth_seen').get())
+          row.read<String>('card_id'):
+              DateTime.fromMillisecondsSinceEpoch(row.read<int>('seen_at'))
+      };
+  Future<void> markGrowthSeen(String id) => customStatement(
+      'INSERT INTO growth_seen (card_id, seen_at) VALUES (?, ?) ON CONFLICT(card_id) DO UPDATE SET seen_at=excluded.seen_at',
+      [id, DateTime.now().millisecondsSinceEpoch]);
 
   Future<void> createDailyVerseCache() =>
       customStatement('''CREATE TABLE daily_verse_cache (
@@ -147,6 +181,7 @@ class UserDatabase extends GeneratedDatabase {
                 'SELECT * FROM reading ORDER BY visited_at DESC, reference')
             .get();
         return UserData(
+          growth: await growthEntries(),
           preferences: {
             for (final row in preferences)
               row.read<String>('key'): row.read<String>('value')

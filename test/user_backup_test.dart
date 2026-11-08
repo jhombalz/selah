@@ -60,7 +60,8 @@ void main() {
     expect(decoded.createdAt, DateTime.utc(2026, 11, 7));
     final data = (jsonDecode(utf8.decode(original.encode())) as Map)['payload']
         ['data'] as Map;
-    expect(data.keys.toSet(), {'preferences', 'annotations', 'history'});
+    expect(
+        data.keys.toSet(), {'preferences', 'annotations', 'history', 'growth'});
   });
 
   test('Invalid, unsupported, altered and oversized files are rejected', () {

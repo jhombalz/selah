@@ -12,9 +12,14 @@ No accounts or cloud sync in version one.
 
 ## Stages
 
-Stages 1–7 below record the foundation work. The next proposed stages are
+Stages 1–7 below record the foundation work. The subsequent stages are
 [Phases 8–13: Scripture, prayer, and daily life](docs/spiritual-growth-roadmap.md).
-Start with Phase 8, **My time with God**: Pause → Read → Reflect → Pray → Live.
+Phases 8, 9, 10, and 12 now have their core implementation in v0.2.0:
+**My time with God** (Pause → Read → Reflect → Pray → Live), 15 contextual theme
+guides, a private prayer journal, optional Android reminders, and previewed
+platform sharing. Everything except sharing and device notification delivery
+works through local content/storage. These features use no AI API.
+See [implementation details and verification](docs/guided-journey.md).
 The roadmap also evaluates the owner's Mood & Circumstance Mapping document
 and identifies which features fit SELAH, need adaptation, or should be deferred.
 
@@ -76,11 +81,11 @@ Language filters and large-text layouts at phone/tablet/desktop sizes are checke
 Daily verses now use an online random reference with a whole-Bible local
 fallback, shown in the selected translation and cached by local day. Schema v3
 adds a separate daily-verse cache. Offline audio and sync remain deferred.
-Guided reflection, prayer, and reviewed thematic content are proposed in the
-new roadmap; they are not implemented yet. The latest checked suite has 55
+Guided reflection, prayer, and initial original thematic content are implemented
+as described in the roadmap update. The latest checked suite has 63
 passing tests.
 
-Android releases through v0.1.3 have been built and published. Android launcher
+Android releases through v0.2.0 have been built and published. Android launcher
 and splash branding are implemented. Optional Android Focus Mode includes
 chosen apps, configurable daily reading minutes, a reading gate, and a timer
 that pauses outside the eligible Bible reader. Emulator checks covered the
@@ -96,7 +101,7 @@ Books opens full-screen below 840 px and in a centered dialog above that width.
 The current book is highlighted and scrolled into view; selecting a book shows
 its chapter grid. Search is available from the Books toolbar. Back/cancel leaves
 the current passage unchanged. AA text-size controls remain in the reader toolbar.
-55 tests pass, including backup validation/restoration, range gestures, autoscroll, highlight range
+63 tests pass, including backup validation/restoration, range gestures, autoscroll, highlight range
 editing, Books-to-chapter navigation, and translation flows.
 
 Complete Cebuano Scripture is bundled as a read-only asset. No API is needed

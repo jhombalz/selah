@@ -98,7 +98,7 @@ class _BackupPageState extends State<BackupPage> {
           builder: (context) => AlertDialog(
                 title: const Text('Replace local user data?'),
                 content: const Text(
-                    'Notes, bookmarks, highlights, settings, history, and progress will be replaced by this backup. Items absent from the backup will be removed. Your downloaded Bible translations will stay installed.'),
+                    'Notes, bookmarks, highlights, settings, history, progress, guided sessions, and prayers will be replaced by this backup. Items absent from the backup will be removed. Older backups contain no journals. Your downloaded Bible translations will stay installed.'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(context, false),
@@ -149,7 +149,7 @@ class _BackupPageState extends State<BackupPage> {
                           TextStyle(fontFamily: 'SourceSerif4', fontSize: 28)),
                   const SizedBox(height: 12),
                   const Text(
-                      'Export notes, bookmarks, highlights, reading history, progress, and preferences to a file. Bible texts and downloaded translations are not included.'),
+                      'Export notes, bookmarks, highlights, reading history, progress, preferences, guided sessions, and prayers to a file. Bible texts and downloaded translations are not included.'),
                   const SizedBox(height: 8),
                   const Text(
                       'Backups are unencrypted JSON files stored wherever you choose. No account or internet connection is required.',
@@ -194,7 +194,7 @@ class _BackupPageState extends State<BackupPage> {
                                       'Created ${MaterialLocalizations.of(context).formatFullDate(backup!.createdAt.toLocal())}'),
                                   const SizedBox(height: 12),
                                   Text(
-                                      '${backup!.data.notes.length} notes · ${backup!.data.bookmarks.length} bookmarks\n${backup!.data.highlights.length} highlights · ${backup!.data.history.length} history entries\n${backup!.data.history.where((entry) => entry.completed).length} completed chapters · ${backup!.data.preferences.length} preferences'),
+                                      '${backup!.data.notes.length} notes · ${backup!.data.bookmarks.length} bookmarks\n${backup!.data.highlights.length} highlights · ${backup!.data.history.length} history entries\n${backup!.data.history.where((entry) => entry.completed).length} completed chapters · ${backup!.data.preferences.length} preferences\n${backup!.data.growth.where((entry) => entry.kind == 'session').length} guided sessions · ${backup!.data.growth.where((entry) => entry.kind == 'prayer').length} prayers'),
                                   const SizedBox(height: 20),
                                   SegmentedButton<RestoreMode>(
                                       segments: const [

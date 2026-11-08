@@ -134,7 +134,7 @@ void main() {
     expect(Bible.overlaps('GEN.1.17-18', 'EXO.1.18'), isFalse);
   });
 
-  for (final version in [1, 2]) {
+  for (final version in [1, 2, 3]) {
     test(
         'Schema upgrade from $version preserves user data and note creation edition',
         () async {
@@ -148,7 +148,11 @@ void main() {
         if (version == 1) {
           await database.customStatement('DROP TABLE translations');
         }
-        await database.customStatement('DROP TABLE daily_verse_cache');
+        if (version < 3) {
+          await database.customStatement('DROP TABLE daily_verse_cache');
+        }
+        await database.customStatement('DROP TABLE growth_entries');
+        await database.customStatement('DROP TABLE growth_seen');
         await database.customStatement('PRAGMA user_version = $version');
         await database.close();
         database = UserDatabase(NativeDatabase(file));

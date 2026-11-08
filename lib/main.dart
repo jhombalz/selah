@@ -21,6 +21,9 @@ import 'features/audio/chapter_audio.dart';
 import 'features/audio/audio_play_button.dart';
 import 'features/home/daily_verse_card.dart';
 import 'data/daily_verse.dart';
+import 'data/growth_entry.dart';
+import 'features/growth/growth_page.dart';
+import 'features/growth/growth_share.dart';
 import 'features/focus/focus_controller.dart';
 import 'features/focus/focus_page.dart';
 
@@ -77,6 +80,7 @@ class _SelahAppState extends State<SelahApp> {
   bool focusSyncScheduled = false;
   bool focusAvailable = false, focusEnabled = false;
   String? pendingFocusAction;
+  GrowthEntry? activeGrowthSession;
 
   void focusChanged() {
     if (!mounted) return;
@@ -103,6 +107,8 @@ class _SelahAppState extends State<SelahApp> {
           openChapter(bookIndex, chapterIndex, offset: resumeOffset);
         } else if (action == 'settings') {
           openFocusPage();
+        } else if (action == 'journey') {
+          openGrowthPage();
         }
       }
       unawaited(focus.readingVisible(page == 1 &&
@@ -120,6 +126,64 @@ class _SelahAppState extends State<SelahApp> {
               navigatorKey.currentState?.popUntil((route) => route.isFirst);
               openChapter(bookIndex, chapterIndex, offset: resumeOffset);
             })));
+  }
+
+  void readGrowthPassage(GrowthEntry entry) {
+    final parts = entry.reference!.split('.');
+    final book = bible!.books.indexWhere((book) => book.id == parts[0]);
+    final chapter = int.parse(parts[1]) - 1;
+    final firstVerse = bible!.books[book].chapters[chapter].firstWhere(
+        (verse) => Bible.overlaps(
+            '${parts[0]}.${parts[1]}.${verse.number}', entry.reference!));
+    navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    activeGrowthSession = entry;
+    openChapter(book, chapter,
+        targetVerse: '${parts[0]}.${parts[1]}.${firstVerse.number}');
+  }
+
+  void openGrowthPage() {
+    if (bible == null) return;
+    final first = bible!.books[bookIndex].chapters[chapterIndex].first;
+    final last = bible!.books[bookIndex].chapters[chapterIndex].last;
+    final reference =
+        '${bible!.books[bookIndex].id}.${chapterIndex + 1}.${first.number.split('-').first}-${last.number.split('-').last}';
+    Navigator.of(navigatorKey.currentContext!).push<void>(MaterialPageRoute(
+        builder: (_) => GrowthPage(
+            database: database,
+            bible: bible!,
+            currentReference: reference,
+            onRead: readGrowthPassage)));
+  }
+
+  Future<void> continueGrowthSession() async {
+    final active = activeGrowthSession;
+    if (active == null || bible == null) return;
+    late GrowthEntry entry;
+    try {
+      final matches = (await database.growthEntries())
+          .where((entry) => entry.id == active.id);
+      if (matches.isEmpty) {
+        if (mounted) setState(() => activeGrowthSession = null);
+        return;
+      }
+      entry = matches.first;
+      entry.step = 2;
+      await database.saveGrowth(entry);
+      activeGrowthSession = entry;
+    } catch (_) {
+      messengerKey.currentState?.showSnackBar(const SnackBar(
+          content: Text('Could not save your session. Please try again.')));
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(navigatorKey.currentContext!).push<void>(
+        MaterialPageRoute(
+            builder: (_) => GrowthEditor(
+                database: database,
+                bible: bible!,
+                entry: entry,
+                onRead: readGrowthPassage)));
+    if (mounted && entry.completed) setState(() => activeGrowthSession = null);
   }
 
   void audioChanged() {
@@ -1045,6 +1109,17 @@ class _SelahAppState extends State<SelahApp> {
           }),
       const SizedBox(height: 24),
       Card(
+          child: ListTile(
+              contentPadding: const EdgeInsets.all(20),
+              leading: const Icon(Icons.spa_outlined, size: 32),
+              title: const Text('My time with God'),
+              subtitle: const Text(
+                  'Pause. Read. Reflect. Pray. Live.\nGuided moments and your private prayer journal.'),
+              isThreeLine: true,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: openGrowthPage)),
+      const SizedBox(height: 24),
+      Card(
           margin: EdgeInsets.zero,
           child: Padding(
               padding: const EdgeInsets.all(22),
@@ -1336,6 +1411,16 @@ class _SelahAppState extends State<SelahApp> {
     final completed = history
         .any((entry) => entry.reference == chapterReference && entry.completed);
     return Column(children: [
+      if (activeGrowthSession != null)
+        Material(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.spa_outlined),
+                title: const Text('Your quiet moment'),
+                trailing: TextButton(
+                    onPressed: continueGrowthSession,
+                    child: const Text('Continue reflection')))),
       Expanded(
           child: centered(PassageSelectionLayer(
               key: ValueKey('select-${bible!.id}-$chapterReference'),
@@ -1625,6 +1710,22 @@ class _SelahAppState extends State<SelahApp> {
                     annotate(reference);
                   },
                 ),
+              ListTile(
+                  leading: const Icon(Icons.ios_share),
+                  title: const Text('Share passage'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    final selection = GrowthEntry.create(
+                        kind: 'session',
+                        title: 'Scripture',
+                        translation: bible!.id,
+                        reference: verse);
+                    final related = relatedReferences(verse, notes.keys);
+                    selection.reflection = related
+                        .map((reference) => notes[reference]!)
+                        .join('\n\n');
+                    previewGrowthShare(context, bible!, selection);
+                  }),
               if (!notes.containsKey(verse))
                 ListTile(
                   leading: const Icon(Icons.edit_note),
@@ -1760,6 +1861,15 @@ class _SelahAppState extends State<SelahApp> {
             'Your reflections',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
+          const SizedBox(height: 16),
+          Card(
+              child: ListTile(
+                  leading: const Icon(Icons.spa_outlined),
+                  title: const Text('My time with God & prayers'),
+                  subtitle: const Text(
+                      'Guided sessions, drafts, and your prayer journal'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: openGrowthPage)),
           const SizedBox(height: 16),
           if (references.isEmpty)
             const Text(

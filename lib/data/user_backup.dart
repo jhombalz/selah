@@ -5,6 +5,7 @@ import 'bible.dart';
 import 'scripture_range.dart';
 import 'user_database.dart';
 import 'translations.dart';
+import 'growth_entry.dart';
 
 enum RestoreMode { merge, replace }
 
@@ -26,7 +27,7 @@ class UserBackup {
     };
     final envelope = {
       'format': 'selah.user-backup',
-      'version': 1,
+      'version': 2,
       'payload': payload,
       'checksum': sha256.convert(utf8.encode(jsonEncode(payload))).toString()
     };
@@ -47,7 +48,7 @@ class UserBackup {
     if (root['format'] != 'selah.user-backup') {
       throw const FormatException('This file is not a THE BIBLE user backup.');
     }
-    if (root['version'] != 1) {
+    if (root['version'] != 1 && root['version'] != 2) {
       throw const FormatException(
           'This backup version is not supported. Please update the app.');
     }
@@ -59,8 +60,12 @@ class UserBackup {
           'The backup is incomplete or has changed since export. Its checksum does not match.');
     }
     final date = _date(payload['createdAt']);
-    return UserBackup._(
-        date, _readData(_map(payload['data'], 'user data'), canon));
+    final rawData = _map(payload['data'], 'user data');
+    if (root['version'] == 2 && rawData['growth'] is! List) {
+      throw const FormatException(
+          'Journal records are missing from this backup.');
+    }
+    return UserBackup._(date, _readData(rawData, canon));
   }
 
   static Map<String, dynamic> _writeData(UserData data) {
@@ -71,6 +76,7 @@ class UserBackup {
     }.toList()
       ..sort();
     return {
+      'growth': [for (final entry in data.growth) entry.toJson()],
       'preferences': data.preferences,
       'annotations': [
         for (final reference in references)
@@ -172,7 +178,24 @@ class UserBackup {
           reference, _date(row['visitedAt']), row['completed'] as bool));
     }
     history.sort((a, b) => b.visitedAt.compareTo(a.visitedAt));
+    final growth = <GrowthEntry>[];
+    final growthIds = <String>{};
+    for (final item in _list(raw['growth'] ?? [], 10000)) {
+      final entry = GrowthEntry.fromJson(_map(item, 'journal entry'));
+      if (!growthIds.add(entry.id)) {
+        throw const FormatException('Duplicate journal entry.');
+      }
+      _translation(entry.translation);
+      if (entry.reference != null) {
+        _reference(entry.reference, canon);
+      } else if (entry.kind == 'session') {
+        throw const FormatException(
+            'A guided session needs a Scripture reference.');
+      }
+      growth.add(entry);
+    }
     return UserData(
+        growth: List.unmodifiable(growth),
         preferences: Map.unmodifiable(preferences),
         bookmarks: Set.unmodifiable(bookmarks),
         notes: Map.unmodifiable(notes),
@@ -310,6 +333,12 @@ class BackupService {
           preferences['translation'] = 'cebocb';
           preferences['scrollOffset'] = '0';
         }
+        final growth = {for (final entry in incoming.growth) entry.id: entry};
+        if (merging) {
+          for (final entry in local.growth) {
+            growth[entry.id] = entry;
+          }
+        }
         final references = {...bookmarks, ...notes.keys, ...highlights.keys};
         await database.batch((batch) {
           batch.customStatement('DELETE FROM preferences');
@@ -341,6 +370,11 @@ class BackupService {
                 ]);
           }
         });
+        await database.customStatement('DELETE FROM growth_entries');
+        if (!merging) await database.customStatement('DELETE FROM growth_seen');
+        for (final entry in growth.values) {
+          await database.saveGrowth(entry);
+        }
         return RestoreResult(await database.load(), fallback);
       });
 

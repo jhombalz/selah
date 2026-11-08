@@ -1,7 +1,10 @@
 # SELAH: Scripture, prayer, and daily life
 
-Status: proposed development phases; no new application features are implemented
-by this document. The owner requested this roadmap after reviewing
+Implementation update: v0.2.0 implements the core of phases 8, 9, 10, and 12.
+Phase 9 starts with 15 original English pilot guides; phase 10 reminders are
+Android-only. Phases 11 and 13 remain deferred. See
+[the implemented guided journey](guided-journey.md) for actual behavior and checks.
+The design plan below is retained for reference. The owner requested it after reviewing
 `bibleafeature.md` (Mood & Circumstance Mapping). That document is a proposal to
 evaluate, not an instruction to implement every feature or adopt its claims.
 
