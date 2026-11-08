@@ -134,29 +134,37 @@ void main() {
     expect(Bible.overlaps('GEN.1.17-18', 'EXO.1.18'), isFalse);
   });
 
-  test('Schema upgrade preserves existing user data and note creation edition',
-      () async {
-    final directory = await Directory.systemTemp.createTemp('selah-migration-');
-    final file = File('${directory.path}/data.sqlite');
-    var database = UserDatabase(NativeDatabase(file));
-    try {
-      await database.setNote('JHN.3.16', 'Original note');
-      await database.setBookmark('JHN.3.16', true);
-      await database.customStatement('DROP TABLE translations');
-      await database.customStatement('PRAGMA user_version = 1');
-      await database.close();
-      database = UserDatabase(NativeDatabase(file));
-      expect(await database.installedTranslations(), isEmpty);
-      await database.setNote('JHN.3.16', 'Edited in WEB',
-          sourceTranslation: 'web');
-      final user = await database.load();
-      expect(user.notes['JHN.3.16'], 'Edited in WEB');
-      expect(user.noteTranslations['JHN.3.16'], 'cebocb');
-      expect(user.bookmarks, contains('JHN.3.16'));
-      await expectLater(database.removeTranslation('cebocb'), throwsStateError);
-    } finally {
-      await database.close();
-      await directory.delete(recursive: true);
-    }
-  });
+  for (final version in [1, 2]) {
+    test(
+        'Schema upgrade from $version preserves user data and note creation edition',
+        () async {
+      final directory =
+          await Directory.systemTemp.createTemp('selah-migration-');
+      final file = File('${directory.path}/data.sqlite');
+      var database = UserDatabase(NativeDatabase(file));
+      try {
+        await database.setNote('JHN.3.16', 'Original note');
+        await database.setBookmark('JHN.3.16', true);
+        if (version == 1) {
+          await database.customStatement('DROP TABLE translations');
+        }
+        await database.customStatement('DROP TABLE daily_verse_cache');
+        await database.customStatement('PRAGMA user_version = $version');
+        await database.close();
+        database = UserDatabase(NativeDatabase(file));
+        expect(await database.installedTranslations(), isEmpty);
+        await database.setNote('JHN.3.16', 'Edited in WEB',
+            sourceTranslation: 'web');
+        final user = await database.load();
+        expect(user.notes['JHN.3.16'], 'Edited in WEB');
+        expect(user.noteTranslations['JHN.3.16'], 'cebocb');
+        expect(user.bookmarks, contains('JHN.3.16'));
+        await expectLater(
+            database.removeTranslation('cebocb'), throwsStateError);
+      } finally {
+        await database.close();
+        await directory.delete(recursive: true);
+      }
+    });
+  }
 }

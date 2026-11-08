@@ -20,6 +20,7 @@ import 'features/backup/backup_page.dart';
 import 'features/audio/chapter_audio.dart';
 import 'features/audio/audio_play_button.dart';
 import 'features/home/daily_verse_card.dart';
+import 'data/daily_verse.dart';
 import 'features/focus/focus_controller.dart';
 import 'features/focus/focus_page.dart';
 
@@ -264,6 +265,7 @@ class _SelahAppState extends State<SelahApp> {
   int chapterIndex = 0;
   final readerScroll = ScrollController();
   late final UserDatabase database;
+  late final DailyVerseRepository dailyVerses;
   List<ReadingEntry> history = [];
   String? saveError;
   double resumeOffset = 0;
@@ -523,6 +525,7 @@ class _SelahAppState extends State<SelahApp> {
     unawaited(focus.start());
     chapterAudio.addListener(audioChanged);
     database = widget.database ?? UserDatabase.local();
+    dailyVerses = DailyVerseRepository(database: database);
     if (widget.initialBible != null && widget.initialData != null) {
       bible = widget.initialBible;
       bundledBible = widget.initialBible;
@@ -568,6 +571,7 @@ class _SelahAppState extends State<SelahApp> {
   void dispose() {
     focus.removeListener(focusChanged);
     focus.dispose();
+    dailyVerses.dispose();
     chapterAudio.removeListener(audioChanged);
     chapterAudio.dispose();
     readerScroll.dispose();
@@ -850,8 +854,8 @@ class _SelahAppState extends State<SelahApp> {
                                   icon: Icon(Icons.home_outlined),
                                   label: Text('Home')),
                               NavigationRailDestination(
-                                icon: Icon(Icons.menu_book_outlined),
-                                label: Text('Read'),
+                                icon: Icon(Icons.auto_stories_outlined),
+                                label: Text('Bible'),
                               ),
                               NavigationRailDestination(
                                 icon: Icon(Icons.search),
@@ -882,8 +886,8 @@ class _SelahAppState extends State<SelahApp> {
                         NavigationDestination(
                             icon: Icon(Icons.home_outlined), label: 'Home'),
                         NavigationDestination(
-                          icon: Icon(Icons.menu_book_outlined),
-                          label: 'Read',
+                          icon: Icon(Icons.auto_stories_outlined),
+                          label: 'Bible',
                         ),
                         NavigationDestination(
                           icon: Icon(Icons.search),
@@ -1032,6 +1036,7 @@ class _SelahAppState extends State<SelahApp> {
       const SizedBox(height: 24),
       DailyVerseCard(
           bible: bible!,
+          repository: dailyVerses,
           onOpen: (reference) {
             final parts = reference.split('.');
             openChapter(bible!.books.indexWhere((book) => book.id == parts[0]),

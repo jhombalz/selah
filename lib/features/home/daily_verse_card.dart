@@ -1,53 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/bible.dart';
-
-const dailyVerseReferences = [
-  'JHN.3.16',
-  'PSA.23.1',
-  'PRO.3.5-6',
-  'PHP.4.6-7',
-  'ISA.40.31',
-  'MAT.11.28',
-  'ROM.8.28',
-  'JOS.1.9',
-  'PSA.46.1',
-  'PHP.4.13',
-  'LAM.3.22-23',
-  'MAT.6.33',
-  '1PE.5.7',
-  'PSA.119.105',
-  'JHN.14.27',
-  'ROM.15.13',
-  'ISA.41.10',
-  'GAL.5.22-23',
-  'HEB.11.1',
-  'PSA.34.8',
-  '2TI.1.7',
-  'MIC.6.8',
-  '1CO.13.4-7',
-  'EPH.2.8-9',
-  'JAS.1.5',
-  'PSA.121.1-2',
-  'COL.3.15',
-  'ROM.12.2',
-  'JHN.15.5',
-  'PSA.100.5',
-  'NUM.6.24-26',
-];
-
-/// Calendar arithmetic in UTC keeps the rotation independent of DST changes.
-String dailyVerseReference(DateTime date) {
-  final day = DateTime.utc(date.year, date.month, date.day)
-      .difference(DateTime.utc(2026))
-      .inDays;
-  return dailyVerseReferences[day % dailyVerseReferences.length];
-}
+import '../../data/daily_verse.dart';
 
 class DailyVerseCard extends StatefulWidget {
   final Bible bible;
+  final DailyVerseRepository repository;
   final ValueChanged<String> onOpen;
-  const DailyVerseCard({super.key, required this.bible, required this.onOpen});
+  const DailyVerseCard(
+      {super.key,
+      required this.bible,
+      required this.repository,
+      required this.onOpen});
 
   @override
   State<DailyVerseCard> createState() => _DailyVerseCardState();
@@ -57,21 +21,45 @@ class _DailyVerseCardState extends State<DailyVerseCard>
     with WidgetsBindingObserver {
   Timer? timer;
   DateTime today = DateTime.now();
+  DailyVerseChoice? choice;
+  int generation = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    refresh();
     scheduleRefresh();
+  }
+
+  Future<void> refresh() async {
+    final request = ++generation;
+    final date = DateTime.now();
+    if (dailyVerseDay(date) != dailyVerseDay(today)) choice = null;
+    setState(() => today = date);
+    final result = await widget.repository.load(widget.bible, date);
+    if (mounted && request == generation) setState(() => choice = result);
+  }
+
+  @override
+  void didUpdateWidget(covariant DailyVerseCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.bible != widget.bible) {
+      choice = null;
+      refresh();
+    }
   }
 
   void scheduleRefresh() {
     timer?.cancel();
     final now = DateTime.now();
-    timer =
-        Timer(DateTime(now.year, now.month, now.day + 1).difference(now), () {
+    final midnight = DateTime(now.year, now.month, now.day + 1).difference(now);
+    timer = Timer(
+        midnight < const Duration(minutes: 1)
+            ? midnight
+            : const Duration(minutes: 1), () {
       if (!mounted) return;
-      setState(() => today = DateTime.now());
+      refresh();
       scheduleRefresh();
     });
   }
@@ -79,8 +67,10 @@ class _DailyVerseCardState extends State<DailyVerseCard>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      setState(() => today = DateTime.now());
+      refresh();
       scheduleRefresh();
+    } else {
+      timer?.cancel();
     }
   }
 
@@ -93,7 +83,8 @@ class _DailyVerseCardState extends State<DailyVerseCard>
 
   @override
   Widget build(BuildContext context) {
-    final reference = dailyVerseReference(today);
+    final reference =
+        choice?.reference ?? dailyVerseReference(widget.bible, today);
     final verse = widget.bible.verse(reference);
     final parts = reference.split('.');
     final actualReference = '${parts[0]}.${parts[1]}.${verse.number}';

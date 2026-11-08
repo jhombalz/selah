@@ -44,7 +44,7 @@ class UserDatabase extends GeneratedDatabase {
       ));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
   @override
   Iterable<TableInfo<Table, dynamic>> get allTables => const [];
   @override
@@ -66,8 +66,37 @@ class UserDatabase extends GeneratedDatabase {
       completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1))
     )''');
         await createTranslations();
+        await createDailyVerseCache();
       }, onUpgrade: (migrator, from, to) async {
         if (from < 2) await createTranslations();
+        if (from < 3) await createDailyVerseCache();
+      });
+
+  Future<void> createDailyVerseCache() =>
+      customStatement('''CREATE TABLE daily_verse_cache (
+    day TEXT PRIMARY KEY, reference TEXT NOT NULL,
+    online INTEGER NOT NULL CHECK(online IN (0, 1))
+  )''');
+
+  Future<({String reference, bool online})?> dailyVerse(String day) async {
+    final row = await customSelect(
+        'SELECT reference, online FROM daily_verse_cache WHERE day = ?',
+        variables: [Variable(day)]).getSingleOrNull();
+    return row == null
+        ? null
+        : (
+            reference: row.read<String>('reference'),
+            online: row.read<int>('online') == 1
+          );
+  }
+
+  Future<void> cacheDailyVerse(String day, String reference, bool online) =>
+      transaction(() async {
+        await customStatement(
+            'DELETE FROM daily_verse_cache WHERE day <> ?', [day]);
+        await customStatement(
+            'INSERT INTO daily_verse_cache (day, reference, online) VALUES (?, ?, ?) ON CONFLICT(day) DO UPDATE SET reference=excluded.reference, online=excluded.online',
+            [day, reference, online ? 1 : 0]);
       });
 
   Future<void> createTranslations() =>

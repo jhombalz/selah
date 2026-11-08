@@ -2,7 +2,7 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.1.1](https://github.com/jhombalz/selah/releases/download/v0.1.1/selah-v0.1.1-android.apk)
+[Download SELAH Android v0.1.2](https://github.com/jhombalz/selah/releases/download/v0.1.2/selah-v0.1.2-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
 
@@ -63,14 +63,22 @@ Language filters make English and Tagalog editions easy to find. BSB is public
 domain; ULB is © 2018 Door43 World Missions Community, CC BY-SA 4.0. Full ULB
 credits are bundled locally and retained in the installed edition's license.
 
-Home includes a Verse of the Day in the selected edition, rotating through 31
-passages by local calendar date. Read in context opens its exact passage.
+Home includes a Verse of the Day in the selected edition. When online,
+[bible-api.com](https://bible-api.com/) supplies a random reference from the
+whole Bible; SELAH displays the text from the selected local translation.
+Without internet, a daily random selection draws from all locally available
+verses across all 66 books. The day's choice is cached locally, including an
+online choice for later offline use, and resets at local midnight. After an
+offline start, Home retries the online source on resume or once a minute.
+Read in context opens the exact passage. Requests carry no notes or reading
+history; the external service receives standard network request information.
 
 Downloads show progress, allow cancellation, and validate the ZIP, pinned text
 checksum, and complete canon before installation. A failed download does not
 replace an installed edition. Browser downloads are same-origin packages under
 `web/translations`; Android/iOS download the vetted eBible packages directly.
-The existing user database upgrades non-destructively to schema version 2.
+The existing user database upgrades non-destructively to schema version 3.
+The daily verse cache is separate from exported user annotations.
 
 ## Run locally
 
