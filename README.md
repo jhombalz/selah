@@ -163,6 +163,14 @@ absent from the backup. Both modes preserve installed Bible datasets and run in
 one transaction. Missing/corrupt selected editions fall back to the bundled Bible.
 Web export initiates a browser download; native export uses the file picker.
 
+## Android Focus Mode
+
+Choose daily reading minutes and apps to pause in **Settings → Focus Mode**.
+Selected apps display a reading gate until the daily goal is complete. Setup
+requires the user's Android accessibility approval. See
+[Android Focus Mode](docs/android-focus-mode.md) for setup, privacy, behavior,
+and verification details. This feature is Android-only.
+
 ## Bible source and license
 
 The specifically open edition is distributed under CC BY-SA 4.0. Complete

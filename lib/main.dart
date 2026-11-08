@@ -20,6 +20,8 @@ import 'features/backup/backup_page.dart';
 import 'features/audio/chapter_audio.dart';
 import 'features/audio/audio_play_button.dart';
 import 'features/home/daily_verse_card.dart';
+import 'features/focus/focus_controller.dart';
+import 'features/focus/focus_page.dart';
 
 void main() {
   LicenseRegistry.addLicense(() async* {
@@ -69,6 +71,55 @@ class _SelahAppState extends State<SelahApp> {
   DateTime? lastAudioPositionSave;
   final messengerKey = GlobalKey<ScaffoldMessengerState>();
   String? lastAudioError;
+  final focus = FocusController();
+  late final focusRoutes = FocusRouteObserver(scheduleFocusSync);
+  bool focusSyncScheduled = false;
+  bool focusAvailable = false, focusEnabled = false;
+  String? pendingFocusAction;
+
+  void focusChanged() {
+    if (!mounted) return;
+    if (focusAvailable != focus.available ||
+        focusEnabled != focus.status.enabled) {
+      setState(() {
+        focusAvailable = focus.available;
+        focusEnabled = focus.status.enabled;
+      });
+    }
+  }
+
+  void scheduleFocusSync() {
+    if (focusSyncScheduled || !mounted) return;
+    focusSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      focusSyncScheduled = false;
+      if (!mounted) return;
+      final action = pendingFocusAction;
+      if (action != null && bible != null) {
+        pendingFocusAction = null;
+        navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        if (action == 'read') {
+          openChapter(bookIndex, chapterIndex, offset: resumeOffset);
+        } else if (action == 'settings') {
+          openFocusPage();
+        }
+      }
+      unawaited(focus.readingVisible(page == 1 &&
+          bible != null &&
+          !(navigatorKey.currentState?.canPop() ?? false)));
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void openFocusPage() {
+    Navigator.of(navigatorKey.currentContext!).push<void>(MaterialPageRoute(
+        builder: (_) => FocusPage(
+            controller: focus,
+            onRead: () {
+              navigatorKey.currentState?.popUntil((route) => route.isFirst);
+              openChapter(bookIndex, chapterIndex, offset: resumeOffset);
+            })));
+  }
 
   void audioChanged() {
     if (!mounted) return;
@@ -464,6 +515,12 @@ class _SelahAppState extends State<SelahApp> {
   @override
   void initState() {
     super.initState();
+    focus.addListener(focusChanged);
+    focus.onAction = (action) {
+      pendingFocusAction = action;
+      scheduleFocusSync();
+    };
+    unawaited(focus.start());
     chapterAudio.addListener(audioChanged);
     database = widget.database ?? UserDatabase.local();
     if (widget.initialBible != null && widget.initialData != null) {
@@ -509,6 +566,8 @@ class _SelahAppState extends State<SelahApp> {
 
   @override
   void dispose() {
+    focus.removeListener(focusChanged);
+    focus.dispose();
     chapterAudio.removeListener(audioChanged);
     chapterAudio.dispose();
     readerScroll.dispose();
@@ -688,6 +747,7 @@ class _SelahAppState extends State<SelahApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
         navigatorKey: navigatorKey,
+        navigatorObservers: [focusRoutes],
         scaffoldMessengerKey: messengerKey,
         debugShowCheckedModeBanner: false,
         title: 'SELAH',
@@ -696,6 +756,7 @@ class _SelahAppState extends State<SelahApp> {
         themeMode: dark ? ThemeMode.dark : ThemeMode.light,
         home: LayoutBuilder(
           builder: (context, constraints) {
+            scheduleFocusSync();
             final wide = constraints.maxWidth >= 840;
             final readingFocus = page == 1 && !readerControlsVisible;
             final content = bible == null
@@ -1268,6 +1329,7 @@ class _SelahAppState extends State<SelahApp> {
     final completed = history
         .any((entry) => entry.reference == chapterReference && entry.completed);
     return Column(children: [
+      if (focusAvailable && focusEnabled) ReadingGoalBanner(controller: focus),
       Expanded(
           child: centered(PassageSelectionLayer(
               key: ValueKey('select-${bible!.id}-$chapterReference'),
@@ -1702,6 +1764,13 @@ class _SelahAppState extends State<SelahApp> {
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 24),
+            if (focusAvailable)
+              ListTile(
+                  leading: const Icon(Icons.shield_outlined),
+                  title: const Text('Focus Mode'),
+                  subtitle: const Text('Read before opening selected apps'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: openFocusPage),
             ListTile(
               leading: const Icon(Icons.translate),
               title: const Text('Bible translations'),

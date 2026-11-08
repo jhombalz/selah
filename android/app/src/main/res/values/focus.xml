@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="focus_accessibility_description">With your permission, SELAH detects when a selected app opens and shows a reading reminder until your daily reading goal is complete. It does not read screen text, messages, or passwords, and sends no app-usage data to a server. You can disable this service at any time in Android settings.</string>
+    <style name="FocusBlockTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/selah_splash_background</item>
+        <item name="android:statusBarColor">@color/selah_splash_background</item>
+        <item name="android:navigationBarColor">@color/selah_splash_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:colorAccent">#D8BB79</item>
+    </style>
+</resources>
