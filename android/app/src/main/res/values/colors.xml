@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="selah_icon_background">#244B3E</color>
+    <color name="selah_splash_background">#244B3E</color>
+    <color name="selah_window_background">#FAF7EF</color>
+</resources>
