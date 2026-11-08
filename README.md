@@ -93,7 +93,7 @@ from version control. In PowerShell, from this directory:
 
 ## Verification
 
-Flutter 3.47.9 / Dart 3.13.7: 46 tests pass, including audio catalog
+Flutter 3.47.9 / Dart 3.13.7: 48 tests pass, including audio catalog
 coverage, play/pause/replay, stale-load cancellation and retries, backup validation,
 merge/replace conflict handling, transaction rollback and confirmation, touch/mouse range
 selection, autoscroll and partial highlight editing, complete WEB/BSB/ULB/ASV package

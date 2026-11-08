@@ -58,4 +58,49 @@ void main() {
     expect(selection!.chapter, 15);
     expect(find.text('Open picker'), findsOneWidget);
   });
+
+  for (final book in [0, 42]) {
+    testWidgets(
+        'Returning from chapters after scrolling keeps Books usable ($book)',
+        (tester) async {
+      tester.view.physicalSize = const Size(600, 560);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(MaterialApp(
+          home: PassagePicker(
+              bible: bible, currentBook: book, currentChapter: 0)));
+      await tester.pumpAndSettle();
+      final target =
+          find.byKey(ValueKey('pick-book-${book == 0 ? 'DEU' : 'JHN'}'));
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
+      for (var visit = 0; visit < 2; visit++) {
+        await tester.tap(target);
+        await tester.pumpAndSettle();
+        expect(find.text('Choose a chapter'), findsOneWidget);
+        await tester.tap(find.byTooltip('Back to books'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.text('Books'), findsOneWidget);
+        expect(target.hitTestable(), findsOneWidget);
+      }
+      await tester
+          .tap(find.text(book == 0 ? 'New Testament' : 'Old Testament'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byTooltip('Find a book'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'John');
+      await tester.pumpAndSettle();
+      final john = find.byKey(const ValueKey('pick-book-JHN'));
+      await tester.ensureVisible(john);
+      await tester.tap(john);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Back to books'));
+      await tester.pumpAndSettle();
+      expect(john.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

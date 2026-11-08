@@ -108,7 +108,7 @@ class _PassagePickerState extends State<PassagePicker> {
           child: Text('No books found. Try another book name.'));
     }
     return SingleChildScrollView(
-      key: const PageStorageKey('categorized-books'),
+      key: const PageStorageKey('passage-picker-books-scroll'),
       controller: booksScroll,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       child: Column(children: [
@@ -120,7 +120,9 @@ class _PassagePickerState extends State<PassagePicker> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
               child: ExpansionTile(
-                key: ValueKey('group-${group.id}-$query'),
+                // ExpansionTile stores a bool in PageStorage. Give it its own
+                // identifier so it cannot read the ancestor scroll offset.
+                key: PageStorageKey('book-category-${group.id}-$query'),
                 shape: const Border(),
                 collapsedShape: const Border(),
                 tilePadding:
@@ -319,13 +321,16 @@ class _PassagePickerState extends State<PassagePicker> {
                               const SizedBox(height: 16),
                               Expanded(
                                   child: GridView.builder(
-                                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                                          maxCrossAxisExtent: 84 *
-                                              MediaQuery.textScalerOf(context)
-                                                  .scale(1)
-                                                  .clamp(1, 1.8),
-                                          mainAxisSpacing: 10,
-                                          crossAxisSpacing: 10),
+                                      key: PageStorageKey(
+                                          'passage-picker-chapters-${books[selectedBook!].id}'),
+                                      gridDelegate:
+                                          SliverGridDelegateWithMaxCrossAxisExtent(
+                                              maxCrossAxisExtent: 84 *
+                                                  MediaQuery.textScalerOf(context)
+                                                      .scale(1)
+                                                      .clamp(1, 1.8),
+                                              mainAxisSpacing: 10,
+                                              crossAxisSpacing: 10),
                                       itemCount:
                                           books[selectedBook!].chapters.length,
                                       itemBuilder: (context, index) => FilledButton(
@@ -333,16 +338,12 @@ class _PassagePickerState extends State<PassagePicker> {
                                               'pick-chapter-${index + 1}'),
                                           style: FilledButton.styleFrom(
                                               padding: EdgeInsets.zero,
-                                              foregroundColor: selectedBook == widget.currentBook && index == widget.currentChapter
-                                                  ? Theme.of(context)
-                                                      .colorScheme
-                                                      .onPrimary
-                                                  : Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurface,
-                                              backgroundColor: selectedBook == widget.currentBook && index == widget.currentChapter
-                                                  ? Theme.of(context).colorScheme.primary
-                                                  : Theme.of(context).colorScheme.surfaceContainerLow,
+                                              foregroundColor: selectedBook ==
+                                                          widget.currentBook &&
+                                                      index == widget.currentChapter
+                                                  ? Theme.of(context).colorScheme.onPrimary
+                                                  : Theme.of(context).colorScheme.onSurface,
+                                              backgroundColor: selectedBook == widget.currentBook && index == widget.currentChapter ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surfaceContainerLow,
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
                                           onPressed: () => Navigator.pop(context, PassageSelection(selectedBook!, index)),
                                           child: Semantics(selected: selectedBook == widget.currentBook && index == widget.currentChapter, label: 'Chapter ${index + 1}', child: Text('${index + 1}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)))))),
