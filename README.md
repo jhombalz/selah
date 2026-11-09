@@ -2,9 +2,13 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.2.0](https://github.com/jhombalz/selah/releases/download/v0.2.0/selah-v0.2.0-android.apk)
+[Download SELAH Android v0.2.1](https://github.com/jhombalz/selah/releases/download/v0.2.1/selah-v0.2.1-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.2.1 adds automatic audio continuation across chapters and books for
+WEB and BSB, with the reader following the active chapter. Playback stops at
+the end of Scripture. Streaming audio requires internet.
 
 SELAH uses an original open-book-and-sun mark in forest green, warm cream and
 gold. The header wordmark uses the bundled Source Serif 4 font. The vector
