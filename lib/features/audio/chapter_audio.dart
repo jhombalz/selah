@@ -143,8 +143,10 @@ class StreamingAudioBackend implements ChapterAudioBackend {
   }
 }
 
-/// A chapter/edition change invalidates pending loads and never autoplays a new one.
+/// Manual chapter/edition changes invalidate pending loads. Natural completion
+/// can request continuation from the reader's canonical chapter order.
 class ChapterAudioController extends ChangeNotifier {
+  void Function(String scope)? onCompleted;
   final ChapterAudioBackend Function() backendFactory;
   final Future<RecordedAudioCatalog> Function() catalogLoader;
   ChapterAudioController(
@@ -211,6 +213,7 @@ class ChapterAudioController extends ChangeNotifier {
           return;
         }
         if (signal.completed) {
+          if (_completed) return;
           _completed = true;
           status = ChapterAudioStatus.idle;
         } else if (signal.loading) {
@@ -221,6 +224,9 @@ class ChapterAudioController extends ChangeNotifier {
               : ChapterAudioStatus.paused;
         }
         _emit();
+        if (signal.completed && _completed && _scope != null) {
+          onCompleted?.call(_scope!);
+        }
       });
     }
     return _backend!;

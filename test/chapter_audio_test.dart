@@ -115,6 +115,25 @@ void main() {
     expect(backend.loads.length, 2);
   });
 
+  test(
+      'Natural completion requests continuation once; stop ignores stale events',
+      () async {
+    final backend = FakeAudioBackend();
+    final audio = ChapterAudioController(
+        backendFactory: () => backend, catalogLoader: () async => catalog);
+    addTearDown(audio.dispose);
+    final finished = <String>[];
+    audio.onCompleted = finished.add;
+    await audio.toggle('web', 'GEN', 1);
+    backend.events.add(const AudioSignal(completed: true));
+    backend.events.add(const AudioSignal(completed: true));
+    expect(finished, ['web:GEN.1']);
+    await audio.toggle('web', 'GEN', 2);
+    await audio.stop();
+    backend.events.add(const AudioSignal(completed: true));
+    expect(finished, ['web:GEN.1']);
+  });
+
   test('Stopping during a pending load cannot start stale chapter audio',
       () async {
     final backend = FakeAudioBackend()..pending = Completer<void>();

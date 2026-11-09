@@ -45,6 +45,49 @@ void main() {
   });
 
   testWidgets(
+      'Audio continues across chapters and books, and stops at the last chapter',
+      (tester) async {
+    final db = UserDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final backend = FakeAudioBackend();
+    final audio = ChapterAudioController(
+        backendFactory: () => backend, catalogLoader: () async => catalog);
+    final smallBible = Bible([
+      BibleBook('GEN', 'Genesis', [
+        [const BibleVerse('1', 'First chapter')],
+        [const BibleVerse('1', 'Second chapter')]
+      ]),
+      BibleBook('EXO', 'Exodus', [
+        [const BibleVerse('1', 'Next book')]
+      ])
+    ], 'Test WEB', id: 'web', abbreviation: 'WEB');
+    await tester.pumpWidget(SelahApp(
+        initialBible: smallBible,
+        database: db,
+        audioController: audio,
+        initialData: const UserData()));
+    await tester.tap(find.text('Continue Reading'));
+    await tester.runAsync(db.load);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chapter-audio')));
+    await tester.pumpAndSettle();
+    for (final expected in ['web:GEN.2', 'web:EXO.1']) {
+      backend.events.add(const AudioSignal(completed: true));
+      await tester.runAsync(db.load);
+      await tester.pumpAndSettle();
+      expect(audio.scope, expected);
+      expect(audio.playing, isTrue);
+    }
+    expect(find.textContaining('Next book', findRichText: true), findsOneWidget);
+    backend.events.add(const AudioSignal(completed: true));
+    await tester.pumpAndSettle();
+    expect(audio.status, ChapterAudioStatus.idle);
+    expect(backend.plays, 3);
+    await tester.runAsync(db.load);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
       'Playback scrolls Scripture, manual scrolling suspends it, and resume follows again',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);

@@ -216,6 +216,26 @@ class _SelahAppState extends State<SelahApp> {
     lastAudioError = chapterAudio.error;
   }
 
+  void continueChapterAudio(String scope) {
+    if (!mounted ||
+        bible == null ||
+        scope !=
+            '${bible!.id}:${bible!.books[bookIndex].id}.${chapterIndex + 1}') {
+      return;
+    }
+    var book = bookIndex;
+    var chapter = chapterIndex + 1;
+    if (chapter >= bible!.books[book].chapters.length) {
+      book++;
+      chapter = 0;
+    }
+    // Stop at the end of Scripture; never wrap back to Genesis.
+    if (book >= bible!.books.length) return;
+    openChapter(book, chapter);
+    unawaited(
+        chapterAudio.toggle(bible!.id, bible!.books[book].id, chapter + 1));
+  }
+
   void saveAudioPosition() {
     if (!mounted || page != 1 || bible == null || !readerScroll.hasClients) {
       return;
@@ -588,6 +608,7 @@ class _SelahAppState extends State<SelahApp> {
     };
     unawaited(focus.start());
     chapterAudio.addListener(audioChanged);
+    chapterAudio.onCompleted = continueChapterAudio;
     database = widget.database ?? UserDatabase.local();
     dailyVerses = DailyVerseRepository(database: database);
     if (widget.initialBible != null && widget.initialData != null) {
@@ -637,6 +658,7 @@ class _SelahAppState extends State<SelahApp> {
     focus.dispose();
     dailyVerses.dispose();
     chapterAudio.removeListener(audioChanged);
+    chapterAudio.onCompleted = null;
     chapterAudio.dispose();
     readerScroll.dispose();
     if (widget.database == null) {
