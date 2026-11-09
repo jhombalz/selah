@@ -116,10 +116,12 @@ class _GrowthPageState extends State<GrowthPage> {
     }
   }
 
-  Future<void> setReminder(bool enabled) async {
+  Future<void> setReminder(bool enabled, {String slot = 'morning'}) async {
+    final prefix = slot == 'bedtime' ? 'bedtime_' : '';
     var time = TimeOfDay(
-        hour: (reminder['hour'] as int?) ?? 8,
-        minute: (reminder['minute'] as int?) ?? 0);
+        hour:
+            (reminder['${prefix}hour'] as int?) ?? (slot == 'bedtime' ? 21 : 8),
+        minute: (reminder['${prefix}minute'] as int?) ?? 0);
     if (enabled) {
       final selected =
           await showTimePicker(context: context, initialTime: time);
@@ -127,8 +129,9 @@ class _GrowthPageState extends State<GrowthPage> {
       time = selected;
     }
     try {
-      final accepted =
-          await GrowthReminders.configure(enabled, time.hour, time.minute);
+      final accepted = await GrowthReminders.configure(
+          enabled, time.hour, time.minute,
+          slot: slot);
       if (mounted && enabled && !accepted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
@@ -138,6 +141,31 @@ class _GrowthPageState extends State<GrowthPage> {
     } catch (_) {
       if (mounted) setState(() => error = 'The reminder could not be updated.');
     }
+  }
+
+  Widget reminderCard(String slot, String title, IconData icon) {
+    final prefix = slot == 'bedtime' ? 'bedtime_' : '';
+    final enabled = reminder['${prefix}enabled'] == true;
+    final time = TimeOfDay(
+        hour:
+            (reminder['${prefix}hour'] as int?) ?? (slot == 'bedtime' ? 21 : 8),
+        minute: (reminder['${prefix}minute'] as int?) ?? 0);
+    return Card(
+        child: Column(children: [
+      SwitchListTile(
+          secondary: Icon(icon),
+          title: Text(title),
+          subtitle: const Text('A gentle invitation to read a verse.'),
+          value: enabled,
+          onChanged: (value) => setReminder(value, slot: slot)),
+      ListTile(
+          leading: const Icon(Icons.schedule_outlined),
+          title: Text(time.format(context)),
+          subtitle: Text(
+              enabled ? 'Tap to change time' : 'Choose a time when enabling'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: enabled ? () => setReminder(true, slot: slot) : null),
+    ]));
   }
 
   @override
@@ -211,17 +239,14 @@ class _GrowthPageState extends State<GrowthPage> {
                               onPressed: () => delete(entry)))),
                 const SizedBox(height: 24),
                 if (GrowthReminders.supported)
-                  Card(
-                      child: SwitchListTile(
-                          title: const Text('A gentle daily reminder'),
-                          subtitle: Text(reminder['enabled'] == true
-                              ? 'Around ${TimeOfDay(hour: reminder['hour'] as int, minute: reminder['minute'] as int).format(context)} · Change by turning off and on'
-                              : 'Optional. Notifications contain no prayer or journal text.'),
-                          value: reminder['enabled'] == true,
-                          onChanged: setReminder)),
+                  reminderCard('morning', 'Morning verse reminder',
+                      Icons.wb_sunny_outlined),
+                if (GrowthReminders.supported)
+                  reminderCard(
+                      'bedtime', 'Before sleep', Icons.bedtime_outlined),
                 if (GrowthReminders.supported)
                   const Text(
-                      'Android may delay reminders to save battery. A reminder opens this space without revealing private writing.',
+                      'Optional, offline reminders in your device’s local time. Tap a notification to open the Bible. Android may delay delivery to save battery. No private writing appears in notifications.',
                       style: TextStyle(fontSize: 12)),
                 const SizedBox(height: 16),
                 const Text(

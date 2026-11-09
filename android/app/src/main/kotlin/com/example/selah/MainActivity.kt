@@ -23,6 +23,7 @@ class MainActivity : FlutterActivity() {
     private var reminderResult: MethodChannel.Result? = null
     private var reminderHour = 8
     private var reminderMinute = 0
+    private var reminderSlot = "morning"
     private val heartbeat = object : Runnable {
         override fun run() {
             FocusStore.pulse()
@@ -64,15 +65,17 @@ class MainActivity : FlutterActivity() {
                             val enabled = call.argument<Boolean>("enabled") == true
                             val hour = call.argument<Int>("hour") ?: 8
                             val minute = call.argument<Int>("minute") ?: 0
+                            val slot = call.argument<String>("slot") ?: "morning"
+                            require(slot == "morning" || slot == "bedtime")
                             require(hour in 0..23 && minute in 0..59)
                             if (enabled && android.os.Build.VERSION.SDK_INT >= 33 &&
                                 checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                                 if (reminderResult != null) { result.error("BUSY", "A permission request is already open.", null) }
                                 else {
-                                    reminderHour = hour; reminderMinute = minute; reminderResult = result
+                                    reminderHour = hour; reminderMinute = minute; reminderSlot = slot; reminderResult = result
                                     requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 8203)
                                 }
-                            } else result.success(JourneyReminders.configure(this, enabled, hour, minute))
+                            } else result.success(JourneyReminders.configure(this, enabled, hour, minute, slot))
                         }
                         else -> result.notImplemented()
                     }
@@ -143,7 +146,7 @@ class MainActivity : FlutterActivity() {
         if (requestCode == 8203) {
             val result = reminderResult; reminderResult = null
             result?.success(JourneyReminders.configure(this,
-                grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED, reminderHour, reminderMinute))
+                grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED, reminderHour, reminderMinute, reminderSlot))
         }
     }
     override fun onPause() {

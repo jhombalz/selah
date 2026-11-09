@@ -27,12 +27,27 @@ class JourneySmokeInstrumentation : Instrumentation() {
                 Thread.sleep(100)
             }
             val posted = checkNotNull(notification) { "Notification was not delivered" }
-            check(posted.extras.getCharSequence(Notification.EXTRA_TITLE).toString() == "A quiet moment awaits")
-            check(posted.extras.getCharSequence(Notification.EXTRA_TEXT).toString() == "Open SELAH when you are ready.")
+            check(posted.extras.getCharSequence(Notification.EXTRA_TITLE).toString() == "Begin your day with God")
+            check(posted.extras.getCharSequence(Notification.EXTRA_TEXT).toString() == "Pause and read a verse in SELAH.")
             check(posted.contentIntent != null)
+            check(JourneyReminders.configure(context, true, 21, 15, "bedtime"))
+            check(JourneyReminders.status(context)["bedtime_enabled"] == true)
+            check(JourneyReminders.status(context)["hour"] == 8)
+            check(JourneyReminders.status(context)["bedtime_hour"] == 21)
+            JourneyReminders.show(context, "bedtime")
+            var bedtime: Notification? = null
+            for (attempt in 0..30) {
+                bedtime = manager.activeNotifications.firstOrNull { it.id == 8211 }?.notification
+                if (bedtime != null) break
+                Thread.sleep(100)
+            }
+            check(checkNotNull(bedtime).extras.getCharSequence(Notification.EXTRA_TITLE).toString() == "A quiet moment before sleep")
+            check(bedtime?.contentIntent != posted.contentIntent)
             check(!JourneyReminders.configure(context, false, 8, 30))
             check(JourneyReminders.status(context)["enabled"] == false)
-            result.putString("stream", "PASS: native reminder enable, schedule, generic notification, tap intent, and disable\n")
+            check(JourneyReminders.status(context)["bedtime_enabled"] == true)
+            check(!JourneyReminders.configure(context, false, 21, 15, "bedtime"))
+            result.putString("stream", "PASS: independent morning and bedtime settings, notifications, tap intents, and disable\n")
         } catch (error: Throwable) {
             code = Activity.RESULT_CANCELED
             result.putString("stream", "FAIL: ${error.message}\n")

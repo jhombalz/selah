@@ -16,8 +16,9 @@ class GrowthReminders {
     }
   }
 
-  static Future<bool> configure(bool enabled, int hour, int minute) async =>
-      await channel.invokeMethod<bool>(
-          'reminder', {'enabled': enabled, 'hour': hour, 'minute': minute}) ??
+  static Future<bool> configure(bool enabled, int hour, int minute,
+          {String slot = 'morning'}) async =>
+      await channel.invokeMethod<bool>('reminder',
+          {'enabled': enabled, 'hour': hour, 'minute': minute, 'slot': slot}) ??
       false;
 }

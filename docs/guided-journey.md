@@ -45,10 +45,13 @@ Lament, Waiting), and your words. Personal statuses are Still praying, Answered,
 or Archived; SELAH never decides which applies. Add dated updates as time passes.
 An unfinished update is saved as a draft. Delete entries only after confirmation.
 
-The optional Android daily reminder asks for a time, then notification permission
+The optional Android morning and bedtime reminders each have a switch and time picker,
+defaulting to 8:00 AM and 9:00 PM in device local time. Existing daily reminders
+retain their chosen time as the morning reminder; bedtime starts disabled.
+Enabling a reminder asks for a time, then notification permission
 on Android 13+. It uses inexact alarms, not an exact-alarm or foreground-service
-permission. Android may delay delivery. The notification says only "A quiet
-moment awaits / Open SELAH when you are ready" and opens the guided hub. It does
+permission. Android may delay delivery. Morning says "Begin your day with God";
+bedtime says "A quiet moment before sleep". Tapping either opens the Bible. It does
 not expose prayers, moods, or journal text. Boot, clock/timezone changes, app
 updates, and reopening the app reschedule an enabled reminder. Turning it off
 cancels its alarm and posted notification. Force-stopping the app or vendor
