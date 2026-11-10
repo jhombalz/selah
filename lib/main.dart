@@ -9,6 +9,7 @@ import 'data/user_database.dart';
 import 'data/bible_search.dart';
 import 'features/search/search_page.dart';
 import 'features/reader/passage_picker.dart';
+import 'features/reader/reader_scroll_intent.dart';
 import 'features/reader/chapter_completion_card.dart';
 import 'features/branding/selah_brand.dart';
 import 'data/translations.dart';
@@ -54,6 +55,8 @@ class SelahApp extends StatefulWidget {
 class _SelahAppState extends State<SelahApp> {
   bool dark = false;
   bool readerControlsVisible = true;
+  final readerScrollIntent = ReaderScrollIntent();
+  bool readerUserScrolling = false;
   bool savingCompletion = false;
   double fontSize = 21;
   int page = 0;
@@ -566,6 +569,8 @@ class _SelahAppState extends State<SelahApp> {
 
   void openChapter(int book, int chapter,
       {double offset = 0, String? targetVerse}) {
+    readerScrollIntent.reset();
+    readerUserScrolling = false;
     if (page != 1 || book != bookIndex || chapter != chapterIndex) {
       unawaited(chapterAudio.stop());
     }
@@ -701,17 +706,34 @@ class _SelahAppState extends State<SelahApp> {
   }
 
   ThemeData theme(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
     final scheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xff244b3e),
+      seedColor: const Color(0xff24634d),
       brightness: brightness,
+    ).copyWith(
+      primary: Color(dark ? 0xffa0cdb7 : 0xff24634d),
+      onPrimary: Color(dark ? 0xff18201c : 0xfff7f3ea),
+      primaryContainer: Color(dark ? 0xff304e3f : 0xffdce9df),
+      onPrimaryContainer: Color(dark ? 0xffe7e5dc : 0xff244735),
+      surface: Color(dark ? 0xff18201c : 0xfff7f3ea),
+      onSurface: Color(dark ? 0xffe7e5dc : 0xff292d29),
+      onSurfaceVariant: Color(dark ? 0xffadb6ac : 0xff62685f),
+      surfaceContainerLowest: Color(dark ? 0xff141b17 : 0xfffcf9f3),
+      surfaceContainerLow: Color(dark ? 0xff202c25 : 0xffeff1e9),
+      surfaceContainer: Color(dark ? 0xff25332c : 0xffe8ede4),
+      surfaceContainerHigh: Color(dark ? 0xff2d3b33 : 0xffe0e6dc),
+      surfaceContainerHighest: Color(dark ? 0xff35443b : 0xffd8dfd4),
+      secondary: Color(dark ? 0xffc7af7d : 0xff766039),
+      onSecondary: Color(dark ? 0xff241e12 : 0xffffffff),
     );
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: brightness == Brightness.light
-          ? const Color(0xfffaf7ef)
-          : const Color(0xff141e19),
-      appBarTheme: const AppBarTheme(backgroundColor: Colors.transparent),
+      scaffoldBackgroundColor: scheme.surface,
+      appBarTheme: AppBarTheme(
+          backgroundColor: scheme.surface,
+          foregroundColor: scheme.onSurface,
+          surfaceTintColor: Colors.transparent),
     );
   }
 
@@ -1470,20 +1492,36 @@ class _SelahAppState extends State<SelahApp> {
                   if (mounted) setState(() => selectedPassage = null);
                 }
               },
-              child: NotificationListener<UserScrollNotification>(
+              child: NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
                     if (selectedPassage != null) return false;
                     if (notification.depth != 0) return false;
-                    final direction = notification.direction;
-                    if (direction == ScrollDirection.idle) return false;
-                    if (chapterAudio.playing && !audioFollowSuspended) {
+                    if (notification is UserScrollNotification) {
+                      readerUserScrolling =
+                          notification.direction != ScrollDirection.idle;
+                    }
+                    if (notification is UserScrollNotification &&
+                        notification.direction == ScrollDirection.idle) {
+                      readerScrollIntent.reset();
+                    }
+                    if (notification is UserScrollNotification &&
+                        notification.direction != ScrollDirection.idle &&
+                        chapterAudio.playing &&
+                        !audioFollowSuspended) {
                       setState(() => audioFollowSuspended = true);
                       audioScrollGeneration++;
                       audioScrollAnimating = false;
                     }
-                    final show = direction == ScrollDirection.forward;
-                    if (readerControlsVisible != show) {
-                      setState(() => readerControlsVisible = show);
+                    if (notification is ScrollUpdateNotification &&
+                        (notification.dragDetails != null ||
+                            readerUserScrolling)) {
+                      final show = readerScrollIntent.update(
+                          notification.scrollDelta ?? 0,
+                          notification.metrics.pixels,
+                          visible: readerControlsVisible);
+                      if (show != null && readerControlsVisible != show) {
+                        setState(() => readerControlsVisible = show);
+                      }
                     }
                     return false;
                   },

@@ -1,6 +1,8 @@
 package com.example.selah
 
 import android.content.Intent
+import android.content.ActivityNotFoundException
+import android.speech.RecognizerIntent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Bundle
@@ -24,6 +26,7 @@ class MainActivity : FlutterActivity() {
     private var reminderHour = 8
     private var reminderMinute = 0
     private var reminderSlot = "morning"
+    private var voiceResult: MethodChannel.Result? = null
     private val heartbeat = object : Runnable {
         override fun run() {
             FocusStore.pulse()
@@ -56,6 +59,32 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "selah/voice")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "recognize") { result.notImplemented(); return@setMethodCallHandler }
+                if (voiceResult != null) { result.error("BUSY", "Voice input is already open.", null); return@setMethodCallHandler }
+                val language = call.argument<String>("language") ?: "en-PH"
+                if (language !in listOf("en-PH", "fil-PH", "ceb-PH")) {
+                    result.error("LANGUAGE", "Choose a supported language option.", null)
+                    return@setMethodCallHandler
+                }
+                val request = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    .putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
+                    .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                    .putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak your reflection")
+                voiceResult = result
+                try {
+                    @Suppress("DEPRECATION")
+                    startActivityForResult(request, 8301)
+                } catch (_: ActivityNotFoundException) {
+                    voiceResult = null
+                    result.error("UNAVAILABLE", "No speech recognition app is available. Enable your phone’s voice input service or use keyboard dictation.", null)
+                } catch (_: Exception) {
+                    voiceResult = null
+                    result.error("VOICE", "Voice input could not start. Check your phone’s speech service and microphone permissions.", null)
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "selah/journey")
             .setMethodCallHandler { call, result ->
                 try {
@@ -159,5 +188,18 @@ class MainActivity : FlutterActivity() {
         super.onWindowFocusChanged(hasFocus)
         FocusStore.focused(hasFocus)
     }
-    override fun onDestroy() { FocusStore.reading(false); super.onDestroy() }
+    @Deprecated("Android activity-result callback used by the system speech dialog")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != 8301) return
+        val result = voiceResult ?: return
+        voiceResult = null
+        result.success(if (resultCode == android.app.Activity.RESULT_OK)
+            data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() else null)
+    }
+    override fun onDestroy() {
+        voiceResult?.error("CLOSED", "Voice input closed. Your existing reflection is unchanged.", null)
+        voiceResult = null
+        FocusStore.reading(false); super.onDestroy()
+    }
 }

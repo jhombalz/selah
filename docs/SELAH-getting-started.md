@@ -106,6 +106,18 @@ Select **WEB** or **BSB**, then use the **Play** button beside the chapter bar.
 Recorded narration requires internet. Audio is not configured for every
 translation; SELAH does not substitute another edition’s recording.
 
+### Speak your reflection — Android
+
+In **My time with God**, open a guided session and go to **Reflect**. Tap
+**Speak my reflection**, select English, Filipino/Tagalog, or Cebuano if your
+phone supports it, then speak using Android's speech dialog. Review and correct
+the text, then tap **Add to reflection**. It appends to your existing writing
+and autosaves. Discarding or cancelling leaves your reflection unchanged.
+
+The phone's speech service may need internet and may send audio to its provider.
+SELAH does not save recordings. If voice input is unavailable, use keyboard
+dictation or type as usual. Supported languages depend on your device.
+
 ### Daily reminders — Android
 
 Inside **My time with God**, find **Morning verse reminder** and **Before sleep**.

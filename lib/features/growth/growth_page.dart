@@ -6,6 +6,7 @@ import '../../data/user_database.dart';
 import 'growth_catalog.dart';
 import 'growth_platform.dart';
 import 'growth_share.dart';
+import 'reflection_voice_button.dart';
 
 class GrowthPage extends StatefulWidget {
   final UserDatabase database;
@@ -450,6 +451,9 @@ class _GrowthEditorState extends State<GrowthEditor>
                               card?.question ??
                                   'What does this passage reveal about God, and what would you like to consider further?',
                               style: Theme.of(context).textTheme.titleLarge),
+                          ReflectionVoiceButton(
+                              controller: reflection,
+                              onChanged: () => unawaited(save())),
                           field('My reflection', reflection,
                               hint:
                                   'An observation, question, or honest response…'),

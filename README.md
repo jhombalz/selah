@@ -2,9 +2,16 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.2.2](https://github.com/jhombalz/selah/releases/download/v0.2.2/selah-v0.2.2-android.apk)
+[Download SELAH Android v0.2.3](https://github.com/jhombalz/selah/releases/download/v0.2.3/selah-v0.2.3-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.2.3 adds Android reflection dictation under My time with God. Choose
+Speak my reflection, select a language, review/edit the recognized words, then
+add them after your existing reflection. Device speech services may send audio
+online; language and offline support depend on the installed provider. SELAH
+does not record or retain audio. This release also applies the ivory/sage light
+and charcoal dark palettes and deliberate-scroll thresholds for reader menus.
 
 Version 0.2.2 adds separate offline morning and bedtime reading reminders under
 My time with God, each with its own switch and local time. Tap a reminder to
