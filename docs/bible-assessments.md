@@ -1,0 +1,50 @@
+# Bible assessments
+
+Available from Home → Bible assessments in SELAH v0.3.0. No account, AI service,
+or internet connection is needed. The bank contains 100 original English
+multiple-choice questions, 20 per level, with four choices and one correct choice.
+Question and choice order are shuffled for each attempt and saved for resuming.
+
+| Level | Name | Time limit |
+| --- | --- | --- |
+| 1 | Beginner | 180 minutes |
+| 2 | Elementary | 150 minutes |
+| 3 | Intermediate | 120 minutes |
+| 4 | Advanced | 90 minutes |
+| 5 | In-depth | 60 minutes |
+
+Each question is worth one point. Passing requires 16/20 (80%). Level 1 is
+available initially; each next level unlocks after passing its predecessor.
+An earlier pass remains valid even if a later retake scores lower.
+
+Before starting, a warning explains that the timer cannot be paused. The saved
+deadline continues when leaving the screen, switching apps, closing the app,
+or restarting the device. On reopening or resuming, expired attempts are graded
+using their saved answers, with the deadline recorded as the submission time.
+No background notification or continuously running Android service is required.
+
+Choices, question position and review flags are saved as you go. Flagging a
+question does not affect grading. A submission confirmation reports unanswered
+questions. After submission, choices cannot be edited. Unanswered questions are
+incorrect. Storage errors show a retry message while the timer keeps running.
+
+Results show Passed/Failed, total score, percentage and topic totals. They do
+not reveal correct choices, individual-question correctness or an answer review.
+Retaking the same level is allowed after 24 hours from its latest submission,
+not at midnight and not from its start time. A newly unlocked level can be
+started immediately, but only one attempt can be active at a time.
+
+Assessment records are stored separately on this installation. Existing Bible
+backups do not export, restore, or reset assessment attempts and cooldowns.
+Clearing app/site data or reinstalling without preserved data loses this progress.
+Device-local timing and the embedded answer key are not secure examination
+controls: clock changes across restarts, app data manipulation or inspection can
+bypass them. During an open assessment screen, elapsed time prevents a backward
+clock adjustment from restoring time. This is a personal learning feature.
+
+The question bank is an initial English editorial set with internal Scripture
+references validated against the bundled 66-book Bible. It has not received an
+independent pastoral/editorial review. Historical grades use bank version 1;
+changing existing keys/questions requires preserving that version for attempts.
+Grades measure knowledge of these questions, not faith, spiritual worth, or
+closeness to God. No AI writes questions or grades attempts.

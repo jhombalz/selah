@@ -24,6 +24,7 @@ import 'features/home/daily_verse_card.dart';
 import 'data/daily_verse.dart';
 import 'data/growth_entry.dart';
 import 'features/growth/growth_page.dart';
+import 'features/assessment/assessment_page.dart';
 import 'features/growth/growth_share.dart';
 import 'features/focus/focus_controller.dart';
 import 'features/focus/focus_page.dart';
@@ -1162,6 +1163,16 @@ class _SelahAppState extends State<SelahApp> {
               isThreeLine: true,
               trailing: const Icon(Icons.chevron_right),
               onTap: openGrowthPage)),
+      Card(
+          child: ListTile(
+              leading: const Icon(Icons.quiz_outlined),
+              title: const Text('Bible assessments'),
+              subtitle: const Text(
+                  'Five levels · Learn, reflect, and grow in understanding'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => navigatorKey.currentState!.push(
+                  MaterialPageRoute<void>(
+                      builder: (_) => AssessmentPage(database: database))))),
       const SizedBox(height: 24),
       Card(
           margin: EdgeInsets.zero,

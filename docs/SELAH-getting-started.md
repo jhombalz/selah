@@ -106,6 +106,22 @@ Select **WEB** or **BSB**, then use the **Play** button beside the chapter bar.
 Recorded narration requires internet. Audio is not configured for every
 translation; SELAH does not substitute another edition’s recording.
 
+### Bible assessments
+
+On Home, open **Bible assessments**. Level 1 is available first. Each level has
+20 English multiple-choice questions; score **80% (16/20)** to pass and unlock
+the next level. The time limits are 3 hours, 2½ hours, 2 hours, 1½ hours and 1 hour.
+
+Read the warning before starting: **the timer cannot be paused**, even when you
+leave or close SELAH. Answers save as you choose them. You can revisit questions
+and flag them for review. Submit when ready, or let the deadline automatically
+submit saved answers. Unanswered questions count as incorrect.
+
+Results show your grade and topic scores without showing correct choices. Retake
+the same level **24 hours after submission**. A newly unlocked level can be
+started immediately. Only one attempt can be active. Progress is device-local
+and is not part of Bible backups. This score does not measure your faith.
+
 ### Speak your reflection — Android
 
 In **My time with God**, open a guided session and go to **Reflect**. Tap

@@ -108,7 +108,8 @@ void main() {
         find.text('0 of 1,189 chapters marked as read'), 200,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('0 of 1,189 chapters marked as read'), findsOneWidget);
-    await tester.ensureVisible(find.text('Continue Reading'));
+    await tester.scrollUntilVisible(find.text('Continue Reading'), -200,
+        scrollable: find.byType(Scrollable).first);
     await tapAndSave(tester, find.text('Continue Reading'));
     expect(find.byKey(const ValueKey('verse-JHN.3.1')), findsOneWidget);
     await tester.runAsync(() => tester.ensureVisible(

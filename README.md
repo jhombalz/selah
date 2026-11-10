@@ -2,9 +2,16 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.2.3](https://github.com/jhombalz/selah/releases/download/v0.2.3/selah-v0.2.3-android.apk)
+[Download SELAH Android v0.3.0](https://github.com/jhombalz/selah/releases/download/v0.3.0/selah-v0.3.0-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.3.0 adds Home → Bible assessments: five English levels, 20 questions
+each, 80% passing, sequential unlocks and a 24-hour retake wait per level from
+submission. Timers cannot pause; answers and deadlines persist locally. Results
+show grades and topic totals without revealing correct choices. Assessment data
+stays on this installation and is separate from Bible backups.
+See [assessment guide](docs/bible-assessments.md).
 
 Version 0.2.3 adds Android reflection dictation under My time with God. Choose
 Speak my reflection, select a language, review/edit the recognized words, then
