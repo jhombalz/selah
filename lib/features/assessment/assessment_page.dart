@@ -1,12 +1,20 @@
+import '../common/selah_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/user_database.dart';
 import 'assessment_catalog.dart';
 import 'assessment_store.dart';
+import 'assessment_controller.dart';
 
 class AssessmentPage extends StatefulWidget {
   final UserDatabase database;
-  const AssessmentPage({super.key, required this.database});
+  final AssessmentController? controller;
+  final String? initialAttemptId;
+  const AssessmentPage(
+      {super.key,
+      required this.database,
+      this.controller,
+      this.initialAttemptId});
   @override
   State<AssessmentPage> createState() => _AssessmentPageState();
 }
@@ -36,6 +44,8 @@ class _AssessmentPageState extends State<AssessmentPage>
   @override
   void initState() {
     super.initState();
+    openId = widget.initialAttemptId;
+    widget.controller?.resumeRequests.addListener(resumeRequested);
     WidgetsBinding.instance.addObserver(this);
     unawaited(run(() async {}));
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -49,6 +59,14 @@ class _AssessmentPageState extends State<AssessmentPage>
     });
   }
 
+  void resumeRequested() {
+    if (!mounted) return;
+    setState(() => openId = active?.id ??
+        widget.controller?.active?.id ??
+        widget.controller?.latestId);
+    if (!busy) unawaited(run(() async {}));
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && !busy) {
@@ -58,6 +76,7 @@ class _AssessmentPageState extends State<AssessmentPage>
 
   @override
   void dispose() {
+    widget.controller?.resumeRequests.removeListener(resumeRequested);
     timer?.cancel();
     clock.elapsed.stop();
     WidgetsBinding.instance.removeObserver(this);
@@ -106,7 +125,7 @@ class _AssessmentPageState extends State<AssessmentPage>
     confirming = true;
     final accepted = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => SelahDialog(
               title: const Text('The timer cannot be paused'),
               content: SingleChildScrollView(
                   child: Text(
@@ -125,6 +144,7 @@ class _AssessmentPageState extends State<AssessmentPage>
     confirming = false;
     if (!mounted || accepted != true) return;
     await run(() async {
+      await AssessmentNotifications.requestPermission();
       final a = await store.start(level);
       openId = a.id;
     });
@@ -135,7 +155,7 @@ class _AssessmentPageState extends State<AssessmentPage>
     confirming = true;
     final accepted = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => SelahDialog(
               title: const Text('Submit assessment?'),
               content: Text(
                   '${a.answers.length} of 20 answered. ${20 - a.answers.length} unanswered.\n\n'
@@ -155,11 +175,41 @@ class _AssessmentPageState extends State<AssessmentPage>
 
   Widget hub() =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Grow in understanding',
-            style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 12),
-        const Text(
-            'Five English assessments · 20 questions each · 80% to pass.\nYour score measures knowledge of this question set, not your faith or closeness to God.'),
+        Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: LinearGradient(colors: [
+                  Theme.of(context).colorScheme.primaryContainer,
+                  Theme.of(context).colorScheme.surfaceContainerLow
+                ])),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.auto_stories_outlined,
+                  color: Theme.of(context).colorScheme.primary, size: 32),
+              const SizedBox(height: 16),
+              Text('Grow in understanding',
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
+                      ?.copyWith(fontFamily: 'SourceSerif4')),
+              const SizedBox(height: 12),
+              const Text(
+                  'Five English assessments · 20 questions each · 80% to pass.\nYour score measures knowledge of this question set, not your faith or closeness to God.'),
+              const SizedBox(height: 20),
+              Text(
+                  '${List.generate(5, (i) => i + 1).where((level) => attempts.any((a) => a.level == level && a.passed)).length} of 5 levels passed'),
+              const SizedBox(height: 8),
+              ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                      minHeight: 6,
+                      value: List.generate(5, (i) => i + 1)
+                              .where((level) => attempts
+                                  .any((a) => a.level == level && a.passed))
+                              .length /
+                          5)),
+            ])),
         const SizedBox(height: 16),
         if (active case final a?)
           Card(
@@ -195,22 +245,38 @@ class _AssessmentPageState extends State<AssessmentPage>
     final passed = attempts.any((a) => a.level == level && a.passed);
     final available = unlocked && !waiting && active == null && !busy;
     return Card(
+        elevation: 0,
+        margin: const EdgeInsets.only(bottom: 14),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant)),
         child: Padding(
             padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  Icon(!unlocked
-                      ? Icons.lock_outline
-                      : passed
-                          ? Icons.check_circle_outline
-                          : Icons.quiz_outlined),
+                  Container(
+                      width: 52,
+                      height: 52,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(16)),
+                      child: !unlocked
+                          ? const Icon(Icons.lock_outline)
+                          : Text('$level',
+                              style: const TextStyle(
+                                  fontFamily: 'SourceSerif4', fontSize: 28))),
                   const SizedBox(width: 12),
                   Expanded(
                       child: Text(
                           'Level $level · ${assessmentNames[level - 1]}',
-                          style: Theme.of(context).textTheme.titleMedium))
+                          style: Theme.of(context).textTheme.titleMedium)),
+                  if (passed)
+                    Icon(Icons.check_circle_rounded,
+                        color: Theme.of(context).colorScheme.primary),
                 ]),
                 const SizedBox(height: 8),
                 Text('20 questions · ${assessmentMinutes[level - 1]} minutes'),
@@ -239,6 +305,10 @@ class _AssessmentPageState extends State<AssessmentPage>
     final q = assessmentBank[a.level - 1][questionId];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Card(
+          elevation: 0,
+          color: Theme.of(context).colorScheme.primaryContainer,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(children: [
@@ -248,12 +318,19 @@ class _AssessmentPageState extends State<AssessmentPage>
                 const Text('The timer cannot be paused.'),
                 Text(
                     '${a.answers.length}/20 answered · ${a.flagged.length} flagged'),
+                const SizedBox(height: 14),
+                ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                        value: a.answers.length / 20, minHeight: 6)),
               ]))),
       const SizedBox(height: 16),
       Text('Question ${a.current + 1} of 20 · ${q.topic}',
           style: Theme.of(context).textTheme.labelLarge),
       const SizedBox(height: 12),
-      Text(q.prompt, style: Theme.of(context).textTheme.titleLarge),
+      Text(q.prompt,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontFamily: 'SourceSerif4', fontSize: 25, height: 1.4)),
       const SizedBox(height: 16),
       for (final choice in a.options(questionId))
         Padding(
@@ -262,6 +339,13 @@ class _AssessmentPageState extends State<AssessmentPage>
                 style: OutlinedButton.styleFrom(
                     alignment: Alignment.centerLeft,
                     padding: const EdgeInsets.all(18),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                    side: BorderSide(
+                        color: a.answers[questionId] == choice
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.outlineVariant,
+                        width: a.answers[questionId] == choice ? 2 : 1),
                     backgroundColor: a.answers[questionId] == choice
                         ? Theme.of(context).colorScheme.primaryContainer
                         : null),

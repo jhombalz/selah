@@ -23,6 +23,17 @@ or restarting the device. On reopening or resuming, expired attempts are graded
 using their saved answers, with the deadline recorded as the submission time.
 No background notification or continuously running Android service is required.
 
+Since v0.3.2, a compact running-assessment banner appears across app pages and
+dialogs. Tap Resume to return to the saved attempt. The banner disappears when
+the assessment is submitted or expires, without resetting the current page.
+Android can show an ongoing system countdown notification that remains visible
+in the background and opens the attempt when tapped. Notification permission is
+requested before starting; denying it does not prevent the assessment. At expiry,
+an inexact alarm changes the notification to "Assessment time is up". Android
+battery restrictions, force-stop and manufacturer settings can delay or prevent
+the expiry notification; the saved deadline remains authoritative. SELAH does
+not run a foreground service. Browser push notifications are not implemented.
+
 Choices, question position and review flags are saved as you go. Flagging a
 question does not affect grading. A submission confirmation reports unanswered
 questions. After submission, choices cannot be edited. Unanswered questions are

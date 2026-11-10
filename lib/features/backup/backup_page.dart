@@ -1,3 +1,4 @@
+import '../common/selah_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../data/bible.dart';
@@ -95,7 +96,7 @@ class _BackupPageState extends State<BackupPage> {
     if (mode == RestoreMode.replace) {
       final confirmed = await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
+          builder: (context) => SelahDialog(
                 title: const Text('Replace local user data?'),
                 content: const Text(
                     'Notes, bookmarks, highlights, settings, history, progress, guided sessions, and prayers will be replaced by this backup. Items absent from the backup will be removed. Older backups contain no journals. Your downloaded Bible translations will stay installed.'),

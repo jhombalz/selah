@@ -1,3 +1,4 @@
+import '../common/selah_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,9 +26,9 @@ class _ReflectionVoiceButtonState extends State<ReflectionVoiceButton> {
     if (busy) return;
     final selected = await showDialog<String>(
         context: context,
-        builder: (context) => SimpleDialog(
+        builder: (context) => SelahDialog(
               title: const Text('Speak your reflection'),
-              children: [
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
                 const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                     child: Text(
@@ -43,7 +44,7 @@ class _ReflectionVoiceButtonState extends State<ReflectionVoiceButton> {
                 SimpleDialogOption(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Cancel')),
-              ],
+              ]),
             ));
     if (!mounted || selected == null) return;
     language = selected;
@@ -115,7 +116,7 @@ class _VoiceReviewState extends State<_VoiceReview> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => SelahDialog(
         title: const Text('Review your words'),
         content: SizedBox(
             width: 480,

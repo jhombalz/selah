@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:async';
 import '../../data/user_database.dart';
 import 'assessment_catalog.dart';
 
@@ -86,6 +87,7 @@ class AssessmentAttempt {
 }
 
 class AssessmentStore {
+  static final changes = StreamController<void>.broadcast();
   final UserDatabase database;
   final DateTime Function() clock;
   AssessmentStore(this.database, {DateTime Function()? clock})
@@ -98,9 +100,13 @@ class AssessmentStore {
           AssessmentAttempt.fromJson(
               jsonDecode(row.read<String>('content')) as Map<String, dynamic>)
       ];
-  Future<void> _write(AssessmentAttempt attempt) => database.customStatement(
-      'INSERT INTO assessment_attempts (id, content) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET content=excluded.content',
-      [attempt.id, jsonEncode(attempt.toJson())]);
+  Future<void> _write(AssessmentAttempt attempt) async {
+    await database.customStatement(
+        'INSERT INTO assessment_attempts (id, content) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET content=excluded.content',
+        [attempt.id, jsonEncode(attempt.toJson())]);
+    changes.add(null);
+  }
+
   Future<List<AssessmentAttempt>> load() => database.transaction(() async {
         final attempts = await _read();
         final now = clock().toUtc();

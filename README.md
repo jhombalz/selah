@@ -2,9 +2,16 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.3.1](https://github.com/jhombalz/selah/releases/download/v0.3.1/selah-v0.3.1-android.apk)
+[Download SELAH Android v0.3.2](https://github.com/jhombalz/selah/releases/download/v0.3.2/selah-v0.3.2-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.3.2 keeps reading menus hidden across chapter changes until scrolling
+back to the top, unifies app dialogs with rounded sheet styling, and refreshes
+assessment cards and progress. A running-assessment banner stays visible across
+all app pages and opens the current attempt. Android also shows a countdown
+notification and a time-expired notification, with notification permission.
+System battery restrictions can delay the expiry alert. Browser push is not included.
 
 Version 0.3.1 refreshes My time with God with a welcoming sage card and clearer
 saved entries. Sharing opens a rounded bottom sheet with a scrollable preview

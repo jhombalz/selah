@@ -4,7 +4,7 @@ class ReaderScrollIntent {
   void reset() => _distance = 0;
 
   bool? update(double delta, double offset, {required bool visible}) {
-    if (offset <= 12) {
+    if (offset <= 12 && delta < 0) {
       reset();
       return true;
     }

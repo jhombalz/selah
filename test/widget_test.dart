@@ -91,6 +91,48 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+      'Changing chapters keeps hidden controls hidden until scrolling to the top',
+      (tester) async {
+    Future<void> settleReader() async {
+      for (var i = 0; i < 4; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+    }
+
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(SelahApp(
+        initialBible: bible,
+        database: database,
+        initialData: const UserData()));
+    await tapAndSave(tester, find.text('Continue Reading'));
+    final reader = find.byType(SingleChildScrollView).first;
+    await tester.drag(reader, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsNothing);
+    await settleReader();
+    await tester.tap(find.byTooltip('Next chapter'));
+    await settleReader();
+    expect(find.text('Genesis 2'), findsWidgets);
+    expect(find.byType(NavigationBar), findsNothing);
+    await tester.drag(reader, const Offset(0, -150));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsNothing);
+    await tester.drag(reader, const Offset(0, 1500));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await settleReader();
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(database.load);
+  });
+
   testWidgets('Home resumes a stored chapter without marking it completed',
       (tester) async {
     tester.view.physicalSize = const Size(1280, 1000);

@@ -1,3 +1,4 @@
+import '../common/selah_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'focus_controller.dart';
@@ -18,7 +19,7 @@ class _FocusPageState extends State<FocusPage> {
     if (value && !controller.status.consented) {
       final accepted = await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
+          builder: (context) => SelahDialog(
                   title: const Text('Allow app blocking?'),
                   content: const SingleChildScrollView(
                       child: Text(
@@ -50,7 +51,7 @@ class _FocusPageState extends State<FocusPage> {
         TextEditingController(text: '${widget.controller.status.goalMinutes}');
     final route = DialogRoute<int>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => SelahDialog(
                 title: const Text('Daily reading minutes'),
                 content: TextField(
                     controller: input,

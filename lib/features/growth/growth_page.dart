@@ -1,3 +1,4 @@
+import '../common/selah_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/bible.dart';
@@ -96,7 +97,7 @@ class _GrowthPageState extends State<GrowthPage> {
   Future<void> delete(GrowthEntry entry) async {
     final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => SelahDialog(
                 title: const Text('Delete this entry?'),
                 content: const Text(
                     'This removes this journal entry from this device. Verse notes stay unchanged.'),

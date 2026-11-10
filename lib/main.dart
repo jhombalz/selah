@@ -1,3 +1,4 @@
+import 'features/common/selah_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +26,7 @@ import 'data/daily_verse.dart';
 import 'data/growth_entry.dart';
 import 'features/growth/growth_page.dart';
 import 'features/assessment/assessment_page.dart';
+import 'features/assessment/assessment_controller.dart';
 import 'features/growth/growth_share.dart';
 import 'features/focus/focus_controller.dart';
 import 'features/focus/focus_page.dart';
@@ -58,6 +60,10 @@ class _SelahAppState extends State<SelahApp> {
   bool readerControlsVisible = true;
   final readerScrollIntent = ReaderScrollIntent();
   bool readerUserScrolling = false;
+  bool readerRevealAtTopOnly = false;
+  late final AssessmentController assessments;
+  bool assessmentPageOpen = false;
+  Route<void>? assessmentRoute;
   bool savingCompletion = false;
   double fontSize = 21;
   int page = 0;
@@ -106,13 +112,17 @@ class _SelahAppState extends State<SelahApp> {
       final action = pendingFocusAction;
       if (action != null && bible != null) {
         pendingFocusAction = null;
-        navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        if (action != 'assessment') {
+          navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        }
         if (action == 'read') {
           openChapter(bookIndex, chapterIndex, offset: resumeOffset);
         } else if (action == 'settings') {
           openFocusPage();
         } else if (action == 'journey') {
           openGrowthPage();
+        } else if (action == 'assessment') {
+          unawaited(openAssessments(resume: true));
         }
       }
       unawaited(focus.readingVisible(page == 1 &&
@@ -130,6 +140,32 @@ class _SelahAppState extends State<SelahApp> {
               navigatorKey.currentState?.popUntil((route) => route.isFirst);
               openChapter(bookIndex, chapterIndex, offset: resumeOffset);
             })));
+  }
+
+  Future<void> openAssessments({bool resume = false}) async {
+    if (assessmentPageOpen) {
+      navigatorKey.currentState
+          ?.popUntil((route) => route == assessmentRoute || route.isFirst);
+      assessments.resume();
+      return;
+    }
+    assessmentPageOpen = true;
+    if (resume) await assessments.refresh();
+    if (!mounted) return;
+    try {
+      final route = MaterialPageRoute<void>(
+          builder: (_) => AssessmentPage(
+              database: database,
+              controller: assessments,
+              initialAttemptId: resume
+                  ? assessments.active?.id ?? assessments.latestId
+                  : null));
+      assessmentRoute = route;
+      await navigatorKey.currentState!.push<void>(route);
+    } finally {
+      assessmentPageOpen = false;
+      assessmentRoute = null;
+    }
   }
 
   void readGrowthPassage(GrowthEntry entry) {
@@ -332,7 +368,7 @@ class _SelahAppState extends State<SelahApp> {
     if (!context.mounted) return;
     showDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => SelahDialog(
               title: const Text('Recorded Bible audio'),
               content: SingleChildScrollView(
                   child: SelectableText(
@@ -570,6 +606,9 @@ class _SelahAppState extends State<SelahApp> {
 
   void openChapter(int book, int chapter,
       {double offset = 0, String? targetVerse}) {
+    final keepHidden =
+        page == 1 && !readerControlsVisible && targetVerse == null;
+    readerRevealAtTopOnly = keepHidden;
     readerScrollIntent.reset();
     readerUserScrolling = false;
     if (page != 1 || book != bookIndex || chapter != chapterIndex) {
@@ -578,7 +617,7 @@ class _SelahAppState extends State<SelahApp> {
     setState(() {
       page = 1;
       selectedPassage = null;
-      readerControlsVisible = true;
+      readerControlsVisible = !keepHidden;
       bookIndex = book;
       chapterIndex = chapter;
       resumeOffset = offset;
@@ -616,6 +655,7 @@ class _SelahAppState extends State<SelahApp> {
     chapterAudio.addListener(audioChanged);
     chapterAudio.onCompleted = continueChapterAudio;
     database = widget.database ?? UserDatabase.local();
+    assessments = AssessmentController(database)..start();
     dailyVerses = DailyVerseRepository(database: database);
     if (widget.initialBible != null && widget.initialData != null) {
       bible = widget.initialBible;
@@ -660,6 +700,7 @@ class _SelahAppState extends State<SelahApp> {
 
   @override
   void dispose() {
+    assessments.dispose();
     focus.removeListener(focusChanged);
     focus.dispose();
     dailyVerses.dispose();
@@ -693,7 +734,7 @@ class _SelahAppState extends State<SelahApp> {
     if (!context.mounted) return;
     showDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => SelahDialog(
               title: const Text('Bible copyright & license'),
               content: SizedBox(
                   width: 620,
@@ -731,6 +772,15 @@ class _SelahAppState extends State<SelahApp> {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: scheme.surface,
+      dialogTheme: DialogThemeData(
+          backgroundColor: scheme.surface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28))),
+      bottomSheetTheme: BottomSheetThemeData(
+          backgroundColor: scheme.surface,
+          showDragHandle: true,
+          shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)))),
       appBarTheme: AppBarTheme(
           backgroundColor: scheme.surface,
           foregroundColor: scheme.onSurface,
@@ -742,7 +792,7 @@ class _SelahAppState extends State<SelahApp> {
     final controller = TextEditingController(text: notes[verse]);
     final route = DialogRoute<void>(
       context: navigatorKey.currentContext!,
-      builder: (context) => AlertDialog(
+      builder: (context) => SelahDialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         title: Row(children: [
@@ -868,7 +918,11 @@ class _SelahAppState extends State<SelahApp> {
         darkTheme: theme(Brightness.dark),
         themeMode: dark ? ThemeMode.dark : ThemeMode.light,
         builder: (context, child) => FocusTimerFrame(
-            controller: focus, child: child ?? const SizedBox.shrink()),
+            controller: focus,
+            child: AssessmentTimerFrame(
+                controller: assessments,
+                onOpen: () => unawaited(openAssessments(resume: true)),
+                child: child ?? const SizedBox.shrink())),
         home: LayoutBuilder(
           builder: (context, constraints) {
             scheduleFocusSync();
@@ -1170,9 +1224,7 @@ class _SelahAppState extends State<SelahApp> {
               subtitle: const Text(
                   'Five levels · Learn, reflect, and grow in understanding'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => navigatorKey.currentState!.push(
-                  MaterialPageRoute<void>(
-                      builder: (_) => AssessmentPage(database: database))))),
+              onTap: () => openAssessments())),
       const SizedBox(height: 24),
       Card(
           margin: EdgeInsets.zero,
@@ -1270,7 +1322,7 @@ class _SelahAppState extends State<SelahApp> {
         TextButton(
             onPressed: () => showDialog<void>(
                 context: context,
-                builder: (dialogContext) => AlertDialog(
+                builder: (dialogContext) => SelahDialog(
                       title: const Text('Reading history'),
                       content: SizedBox(
                           width: 560,
@@ -1312,9 +1364,9 @@ class _SelahAppState extends State<SelahApp> {
             MaterialPageRoute(fullscreenDialog: true, builder: (_) => picker))
         : await showDialog<PassageSelection>(
             context: context,
-            builder: (context) => Dialog(
-                  clipBehavior: Clip.antiAlias,
-                  child: SizedBox(
+            builder: (context) => SelahDialog(
+                  contentPadding: EdgeInsets.zero,
+                  content: SizedBox(
                       width: 600,
                       height: MediaQuery.sizeOf(context).height * .8,
                       child: picker),
@@ -1507,6 +1559,16 @@ class _SelahAppState extends State<SelahApp> {
                   onNotification: (notification) {
                     if (selectedPassage != null) return false;
                     if (notification.depth != 0) return false;
+                    if (notification is OverscrollNotification &&
+                        notification.overscroll < 0 &&
+                        notification.metrics.pixels <= 12 &&
+                        (notification.dragDetails != null ||
+                            readerUserScrolling)) {
+                      readerRevealAtTopOnly = false;
+                      if (!readerControlsVisible) {
+                        setState(() => readerControlsVisible = true);
+                      }
+                    }
                     if (notification is UserScrollNotification) {
                       readerUserScrolling =
                           notification.direction != ScrollDirection.idle;
@@ -1530,6 +1592,12 @@ class _SelahAppState extends State<SelahApp> {
                           notification.scrollDelta ?? 0,
                           notification.metrics.pixels,
                           visible: readerControlsVisible);
+                      if (show == true &&
+                          readerRevealAtTopOnly &&
+                          notification.metrics.pixels > 12) {
+                        return false;
+                      }
+                      if (show == true) readerRevealAtTopOnly = false;
                       if (show != null && readerControlsVisible != show) {
                         setState(() => readerControlsVisible = show);
                       }

@@ -27,6 +27,7 @@ class MainActivity : FlutterActivity() {
     private var reminderMinute = 0
     private var reminderSlot = "morning"
     private var voiceResult: MethodChannel.Result? = null
+    private var assessmentPermissionResult: MethodChannel.Result? = null
     private val heartbeat = object : Runnable {
         override fun run() {
             FocusStore.pulse()
@@ -48,6 +49,7 @@ class MainActivity : FlutterActivity() {
             FOCUS_READ -> pendingAction = "read"
             FOCUS_SETTINGS -> pendingAction = "settings"
             "com.example.selah.JOURNEY" -> pendingAction = "journey"
+            "com.example.selah.ASSESSMENT" -> pendingAction = "assessment"
         }
     }
 
@@ -59,6 +61,28 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "selah/assessment")
+            .setMethodCallHandler { call, result ->
+                try {
+                    when (call.method) {
+                        "sync" -> {
+                            AssessmentNotifications.sync(this, call.argument<String>("id"),
+                                call.argument<Int>("level"), call.argument<Number>("deadline")?.toLong())
+                            result.success(null)
+                        }
+                        "permission" -> {
+                            if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                if (assessmentPermissionResult != null || reminderResult != null) result.success(false)
+                                else {
+                                    assessmentPermissionResult = result
+                                    requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 8302)
+                                }
+                            } else result.success(true)
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (error: Exception) { result.error("ASSESSMENT_NOTIFICATION", error.message, null) }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "selah/voice")
             .setMethodCallHandler { call, result ->
                 if (call.method != "recognize") { result.notImplemented(); return@setMethodCallHandler }
@@ -169,9 +193,14 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    override fun onResume() { super.onResume(); FocusStore.resumed(true); handler.post(heartbeat); JourneyReminders.schedule(this) }
+    override fun onResume() { super.onResume(); FocusStore.resumed(true); handler.post(heartbeat); JourneyReminders.schedule(this); AssessmentNotifications.schedule(this) }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 8302) {
+            val result = assessmentPermissionResult; assessmentPermissionResult = null
+            result?.success(grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED)
+            AssessmentNotifications.show(this)
+        }
         if (requestCode == 8203) {
             val result = reminderResult; reminderResult = null
             result?.success(JourneyReminders.configure(this,
@@ -198,6 +227,8 @@ class MainActivity : FlutterActivity() {
             data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() else null)
     }
     override fun onDestroy() {
+        assessmentPermissionResult?.success(false)
+        assessmentPermissionResult = null
         voiceResult?.error("CLOSED", "Voice input closed. Your existing reflection is unchanged.", null)
         voiceResult = null
         FocusStore.reading(false); super.onDestroy()

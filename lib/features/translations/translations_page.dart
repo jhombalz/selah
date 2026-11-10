@@ -1,3 +1,4 @@
+import '../common/selah_dialog.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
@@ -139,7 +140,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
   Future<void> remove(TranslationSpec spec) async {
     final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => SelahDialog(
               title: Text('Remove ${spec.abbreviation}?'),
               content: Text(
                   'Your notes, bookmarks, highlights, and progress will be kept.${active == spec.id ? ' Reading will switch to the bundled Cebuano Bible.' : ''}'),
