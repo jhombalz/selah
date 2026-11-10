@@ -48,7 +48,7 @@ class UserDatabase extends GeneratedDatabase {
       ));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
   @override
   Iterable<TableInfo<Table, dynamic>> get allTables => const [];
   @override
@@ -73,15 +73,22 @@ class UserDatabase extends GeneratedDatabase {
         await createDailyVerseCache();
         await createGrowth();
         await createAssessments();
+        await createCommentaryCache();
       }, onUpgrade: (migrator, from, to) async {
         if (from < 2) await createTranslations();
         if (from < 3) await createDailyVerseCache();
         if (from < 4) await createGrowth();
         if (from < 5) await createAssessments();
+        if (from < 6) await createCommentaryCache();
       });
 
   Future<void> createAssessments() => customStatement(
       'CREATE TABLE IF NOT EXISTS assessment_attempts (id TEXT PRIMARY KEY, content TEXT NOT NULL)');
+
+  Future<void> createCommentaryCache() => customStatement('''
+    CREATE TABLE IF NOT EXISTS commentary_cache (
+      reference TEXT PRIMARY KEY, content TEXT NOT NULL, accessed_at INTEGER NOT NULL
+    )''');
 
   Future<void> createGrowth() async {
     await customStatement(

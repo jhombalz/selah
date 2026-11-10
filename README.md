@@ -2,9 +2,15 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.3.2](https://github.com/jhombalz/selah/releases/download/v0.3.2/selah-v0.3.2-android.apk)
+[Download SELAH Android v0.4.0](https://github.com/jhombalz/selah/releases/download/v0.4.0/selah-v0.4.0-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.4.0 adds Bible → tap a verse → Study notes, with English Tyndale Open
+Study Notes, selected-passage and chapter views, source/license links and an
+offline cache of up to 100 opened chapters. Internet is needed the first time
+a chapter is opened. Commentary is clearly separate from Scripture and personal
+writing. See [study-notes guide](docs/study-notes.md).
 
 Version 0.3.2 keeps reading menus hidden across chapter changes until scrolling
 back to the top, unifies app dialogs with rounded sheet styling, and refreshes

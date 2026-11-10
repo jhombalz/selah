@@ -106,6 +106,20 @@ Select **WEB** or **BSB**, then use the **Play** button beside the chapter bar.
 Recorded narration requires internet. Audio is not configured for every
 translation; SELAH does not substitute another edition’s recording.
 
+### Study notes
+
+While reading the Bible, tap a verse and choose **Study notes**. You can also
+select a verse range first. The notes are **Tyndale Open Study Notes in English**,
+even if your Bible text is Cebuano or Tagalog. They are commentary, separate from
+Scripture and your personal reflections.
+
+Choose **Selected passage** for matching notes or **Whole chapter** for nearby
+context. Some passages have no notes. The first opening of a chapter needs
+internet; opened chapters are saved for offline use, up to 100 recent chapters.
+Use **Refresh** to check for updates, or **Remove offline copy** to remove that
+chapter's cached commentary. Personal writing is not removed. **Source & license**
+shows attribution and opens the publisher and CC BY-SA license links.
+
 ### Bible assessments
 
 On Home, open **Bible assessments**. Level 1 is available first. Each level has

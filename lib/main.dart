@@ -26,6 +26,7 @@ import 'data/daily_verse.dart';
 import 'data/growth_entry.dart';
 import 'features/growth/growth_page.dart';
 import 'features/assessment/assessment_page.dart';
+import 'features/study/study_notes_sheet.dart';
 import 'features/assessment/assessment_controller.dart';
 import 'features/growth/growth_share.dart';
 import 'features/focus/focus_controller.dart';
@@ -1864,6 +1865,15 @@ class _SelahAppState extends State<SelahApp> {
                         .map((reference) => notes[reference]!)
                         .join('\n\n');
                     previewGrowthShare(context, bible!, selection);
+                  }),
+              ListTile(
+                  leading: const Icon(Icons.menu_book_outlined),
+                  title: const Text('Study notes'),
+                  subtitle:
+                      const Text('Tyndale · English · saved after opening'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    showStudyNotes(context, bible!, database, verse);
                   }),
               if (!notes.containsKey(verse))
                 ListTile(
