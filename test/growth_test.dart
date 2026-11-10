@@ -210,6 +210,10 @@ void main() {
   testWidgets(
       'sharing keeps private writing unchecked until explicitly selected',
       (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final entry = session()
       ..reflection = 'Private reflection'
       ..prayer = 'Private prayer';
@@ -227,5 +231,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Private reflection'), findsOneWidget);
     expect(find.textContaining('Private prayer'), findsNothing);
+    expect(tester.getRect(find.text('Share')).bottom, lessThan(844));
+    expect(tester.takeException(), isNull);
   });
 }

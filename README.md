@@ -2,9 +2,13 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.3.0](https://github.com/jhombalz/selah/releases/download/v0.3.0/selah-v0.3.0-android.apk)
+[Download SELAH Android v0.3.1](https://github.com/jhombalz/selah/releases/download/v0.3.1/selah-v0.3.1-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.3.1 refreshes My time with God with a welcoming sage card and clearer
+saved entries. Sharing opens a rounded bottom sheet with a scrollable preview
+and fixed Copy/Share actions; private writing remains unchecked by default.
 
 Version 0.3.0 adds Home → Bible assessments: five English levels, 20 questions
 each, 80% passing, sequential unlocks and a 24-hour retake wait per level from

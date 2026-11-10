@@ -176,19 +176,39 @@ class _GrowthPageState extends State<GrowthPage> {
           child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 760),
               child: ListView(padding: const EdgeInsets.all(24), children: [
-                Text('A quiet moment.\nA faithful next step.',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineMedium
-                        ?.copyWith(fontFamily: 'SourceSerif4')),
-                const SizedBox(height: 12),
-                const Text(
-                    'Pause, read, reflect, pray, and carry one small response into your day. Skip any step. Your writing stays on this device.'),
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                    onPressed: busy ? null : () => start(),
-                    icon: const Icon(Icons.auto_stories_outlined),
-                    label: const Text('Begin with my current chapter')),
+                Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Theme.of(context).colorScheme.primaryContainer,
+                              Theme.of(context).colorScheme.surfaceContainerLow
+                            ]),
+                        borderRadius: BorderRadius.circular(28)),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.spa_outlined,
+                              size: 32,
+                              color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(height: 18),
+                          Text('A quiet moment.\nA faithful next step.',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineMedium
+                                  ?.copyWith(fontFamily: 'SourceSerif4')),
+                          const SizedBox(height: 12),
+                          const Text(
+                              'Pause, read, reflect, pray, and carry one small response into your day. Skip any step. Your writing stays on this device.'),
+                          const SizedBox(height: 20),
+                          FilledButton.icon(
+                              onPressed: busy ? null : () => start(),
+                              icon: const Icon(Icons.auto_stories_outlined),
+                              label:
+                                  const Text('Begin with my current chapter')),
+                        ])),
                 const SizedBox(height: 28),
                 Text('What are you carrying today?',
                     style: Theme.of(context).textTheme.titleLarge),
@@ -226,11 +246,30 @@ class _GrowthPageState extends State<GrowthPage> {
                           'Your saved moments will appear here. There is no streak to maintain.')),
                 for (final entry in entries)
                   Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant)),
                       child: ListTile(
-                          leading: Icon(entry.kind == 'prayer'
-                              ? Icons.favorite_outline
-                              : Icons.book_outlined),
-                          title: Text(entry.title),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          leading: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer,
+                                  borderRadius: BorderRadius.circular(14)),
+                              child: Icon(entry.kind == 'prayer'
+                                  ? Icons.favorite_outline
+                                  : Icons.book_outlined)),
+                          title: Text(entry.title,
+                              style: const TextStyle(
+                                  fontFamily: 'SourceSerif4', fontSize: 20)),
                           subtitle: Text(
                               '${entry.kind == 'prayer' ? entry.status : entry.completed ? 'Saved moment' : 'Continue draft'} · ${MaterialLocalizations.of(context).formatMediumDate(entry.updatedAt.toLocal())}'),
                           onTap: () => open(entry),
