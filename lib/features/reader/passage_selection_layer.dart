@@ -11,6 +11,7 @@ class PassageSelectionLayer extends StatefulWidget {
   final Map<String, GlobalKey> anchors;
   final ValueChanged<String?> onChanged;
   final ValueChanged<String> onFinished;
+  final String? Function(Offset)? hitTestVerse;
   const PassageSelectionLayer(
       {super.key,
       required this.child,
@@ -18,6 +19,7 @@ class PassageSelectionLayer extends StatefulWidget {
       required this.references,
       required this.anchors,
       required this.onChanged,
+      this.hitTestVerse,
       required this.onFinished});
   @override
   State<PassageSelectionLayer> createState() => _PassageSelectionLayerState();
@@ -42,6 +44,9 @@ class _PassageSelectionLayerState extends State<PassageSelectionLayer> {
       return null;
     }
     final y = point.dy.clamp(bounds.top + 2, bounds.bottom - 2);
+    if (widget.hitTestVerse != null) {
+      return widget.hitTestVerse!(Offset(point.dx, y));
+    }
     String? nearest;
     double distance = double.infinity;
     for (final reference in widget.references) {

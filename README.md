@@ -2,9 +2,16 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.4.1](https://github.com/jhombalz/selah/releases/download/v0.4.1/selah-v0.4.1-android.apk)
+[Download SELAH Android v0.5.0](https://github.com/jhombalz/selah/releases/download/v0.5.0/selah-v0.5.0-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.5.0 refreshes the reader toolbar and adds desktop edge navigation,
+offline source headings, BSB section references and publisher footnotes, KJV
+red-letter text and source-marked italic words. AA opens reading preferences,
+including optional flowing paragraphs with verse selection. Existing downloaded
+editions pick up matching bundled metadata automatically.
+See [reader formatting guide](docs/reader-formatting.md).
 
 Version 0.4.1 adds optional Cebuano ULB and KJV offline downloads, isolates
 Home scroll state, and enables Android background audio with a media

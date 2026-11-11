@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'reading_format.dart';
 
 class BibleVerse {
   final String number;
   final String text;
-  const BibleVerse(this.number, this.text);
+  final ReadingFormat? readingFormat;
+  const BibleVerse(this.number, this.text, {this.readingFormat});
 }
 
 class BibleBook {
@@ -29,9 +31,31 @@ class Bible {
       this.licenseText = ''});
 
   static Future<Bible> load() async {
-    return fromJson(
+    return withReadingFormat(fromJson(
         jsonDecode(await rootBundle.loadString('assets/bible/cebocb.json'))
-            as Map<String, dynamic>);
+            as Map<String, dynamic>));
+  }
+
+  static Future<Bible> withReadingFormat(Bible bible) async {
+    final entries = await ReadingFormat.load(bible.id);
+    if (entries.isEmpty) return bible;
+    return Bible([
+      for (final book in bible.books)
+        BibleBook(book.id, book.name, [
+          for (int c = 0; c < book.chapters.length; c++)
+            [
+              for (final verse in book.chapters[c])
+                BibleVerse(verse.number, verse.text,
+                    readingFormat: ReadingFormat.match(entries,
+                        '${book.id}.${c + 1}', verse.number, verse.text,
+                        bracketItalics: bible.id == 'kjv'))
+            ]
+        ])
+    ], bible.title,
+        id: bible.id,
+        abbreviation: bible.abbreviation,
+        language: bible.language,
+        licenseText: bible.licenseText);
   }
 
   static Bible fromJson(Map<String, dynamic> data) {

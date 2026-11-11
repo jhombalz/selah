@@ -20,6 +20,8 @@ void main() {
         preferences: const {
           'dark': 'true',
           'audioFollow': 'false',
+          'paragraphs': 'true',
+          'redLetters': 'false',
           'fontSize': '28',
           'translation': 'asv',
           'lastChapter': 'GEN.1',

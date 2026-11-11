@@ -199,7 +199,7 @@ Future<Bible> parseTranslation(String text, TranslationSpec spec, Bible bundled,
       chapters.values.any((book) => book.any((chapter) => chapter.isEmpty))) {
     throw const FormatException('The downloaded Bible is incomplete.');
   }
-  return Bible([
+  return Bible.withReadingFormat(Bible([
     for (int i = 0; i < bundled.books.length; i++)
       BibleBook(
           bundled.books[i].id,
@@ -212,7 +212,7 @@ Future<Bible> parseTranslation(String text, TranslationSpec spec, Bible bundled,
       abbreviation: spec.abbreviation,
       language: spec.language,
       licenseText:
-          '${spec.license}\n\nSource: ${spec.source}\nText only: source formatting, footnotes, and noncanonical headings are not included.${spec.id == 'tglulb' ? '\n\n${await rootBundle.loadString('assets/bible/tglulb-LICENSE.txt')}' : ''}');
+          '${spec.license}\n\nSource: ${spec.source}\nScripture wording is unchanged. Available edition-matched reading metadata is supplied separately from AO Lab.${spec.id == 'tglulb' ? '\n\n${await rootBundle.loadString('assets/bible/tglulb-LICENSE.txt')}' : ''}'));
 }
 
 Future<Bible?> loadInstalledBible(UserDatabase database, String id) async {
@@ -228,7 +228,7 @@ Future<Bible?> loadInstalledBible(UserDatabase database, String id) async {
   if (bible.id != id) {
     throw const FormatException('Translation identifier mismatch.');
   }
-  return bible;
+  return Bible.withReadingFormat(bible);
 }
 
 const _aliases = {

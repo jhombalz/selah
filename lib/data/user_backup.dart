@@ -110,6 +110,8 @@ class UserBackup {
       switch (entry.key) {
         case 'dark':
         case 'audioFollow':
+        case 'paragraphs':
+        case 'redLetters':
           if (value != 'true' && value != 'false') {
             throw const FormatException('Invalid theme preference.');
           }

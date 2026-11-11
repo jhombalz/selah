@@ -7,6 +7,9 @@ import 'package:flutter/foundation.dart'
     show LicenseRegistry, LicenseEntryWithLineBreaks;
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'data/bible.dart';
+import 'features/reader/reader_toolbar.dart';
+import 'features/reader/reader_preferences_sheet.dart';
+import 'features/reader/passage_paragraph.dart';
 import 'data/user_database.dart';
 import 'data/bible_search.dart';
 import 'features/search/search_page.dart';
@@ -87,6 +90,9 @@ class _SelahAppState extends State<SelahApp> {
   String? selectedPassage;
   late final chapterAudio = widget.audioController ?? ChapterAudioController();
   bool followAudio = true;
+  bool paragraphs = false;
+  bool redLetters = true;
+  final paragraphGeometry = ParagraphGeometry();
   bool audioFollowSuspended = false;
   bool audioScrollAnimating = false;
   int audioScrollGeneration = 0;
@@ -470,6 +476,7 @@ class _SelahAppState extends State<SelahApp> {
           : '${selected.books[bookIndex].id}.${chapterIndex + 1}.${verse.number}';
       verseAnchors.clear();
       searchEngine = null;
+      paragraphGeometry.ranges.clear();
       resumeOffset = 0;
       readerControlsVisible = true;
     });
@@ -520,6 +527,8 @@ class _SelahAppState extends State<SelahApp> {
     history = data.history;
     dark = data.preferences['dark'] == 'true';
     followAudio = data.preferences['audioFollow'] != 'false';
+    paragraphs = data.preferences['paragraphs'] == 'true';
+    redLetters = data.preferences['redLetters'] != 'false';
     fontSize = (double.tryParse(data.preferences['fontSize'] ?? '') ?? 21)
         .clamp(16, 32);
     resumeOffset =
@@ -638,6 +647,7 @@ class _SelahAppState extends State<SelahApp> {
       resumeOffset = offset;
       focusedVerse = targetVerse;
       verseAnchors.clear();
+      paragraphGeometry.ranges.clear();
     });
     final reference = chapterReference;
     save(() async {
@@ -1411,148 +1421,232 @@ class _SelahAppState extends State<SelahApp> {
     }
   }
 
-  Future<void> adjustText(BuildContext context) async {
-    double preview = fontSize;
-    await showModalBottomSheet<void>(
+  Future<void> adjustText(BuildContext context) => showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      constraints: const BoxConstraints(maxWidth: 560),
-      builder: (context) => StatefulBuilder(builder: (context, updateSheet) {
-        void change(double value, {bool persist = true}) {
-          updateSheet(() => preview = value.clamp(16, 32));
-          setState(() => fontSize = preview);
-          if (persist) updatePreference('fontSize', '$preview', () {});
-        }
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+          maxWidth: 560, maxHeight: MediaQuery.sizeOf(context).height * .9),
+      builder: (context) => ReaderPreferencesSheet(
+          fontSize: fontSize,
+          paragraphs: paragraphs,
+          redLetters: redLetters,
+          onSize: (value, persist) {
+            setState(() => fontSize = value);
+            if (persist) updatePreference('fontSize', '$value', () {});
+          },
+          onParagraphs: (value) {
+            setState(() {
+              paragraphs = value;
+              verseAnchors.clear();
+              paragraphGeometry.ranges.clear();
+            });
+            save(() => database.setPreferences({'paragraphs': '$value'}));
+          },
+          onRedLetters: (value) {
+            setState(() => redLetters = value);
+            save(() => database.setPreferences({'redLetters': '$value'}));
+          }));
 
-        return SafeArea(
-            child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Row(children: [
-                    Expanded(
-                        child: Text('Reading text size',
-                            style: Theme.of(context).textTheme.titleLarge)),
-                    IconButton(
-                        tooltip: 'Close text size',
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close)),
-                  ]),
-                  const SizedBox(height: 20),
-                  Row(children: [
-                    IconButton(
-                        tooltip: 'Smaller text',
-                        onPressed:
-                            preview <= 16 ? null : () => change(preview - 1),
-                        icon: const Icon(Icons.text_decrease)),
-                    Expanded(
-                        child: Slider(
-                            label: '${preview.round()}',
-                            value: preview,
-                            min: 16,
-                            max: 32,
-                            divisions: 16,
-                            onChanged: (value) => change(value, persist: false),
-                            onChangeEnd: (value) => change(value))),
-                    IconButton(
-                        tooltip: 'Larger text',
-                        onPressed:
-                            preview >= 32 ? null : () => change(preview + 1),
-                        icon: const Icon(Icons.text_increase)),
-                  ]),
-                  Text('${preview.round()} pt',
-                      style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 20),
-                  Text('Pause. Reflect. Grow.',
-                      style: TextStyle(
-                          fontFamily: 'SourceSerif4',
-                          fontSize: preview,
-                          height: 1.6)),
-                  const SizedBox(height: 12),
-                ])));
-      }),
-    );
+  String get audioLabel => chapterAudio.playing
+      ? 'Pause ${bible!.abbreviation} audio'
+      : chapterAudio.status == ChapterAudioStatus.paused
+          ? 'Resume ${bible!.abbreviation} audio · Internet required'
+          : 'Play ${bible!.abbreviation} audio · Internet required';
+
+  List<InlineSpan> scriptureSpans(BuildContext context, BibleVerse verse) {
+    final red = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xffffa59b)
+        : const Color(0xffa52c30);
+    final segments = verse.readingFormat?.segments;
+    if (segments == null || segments.isEmpty) {
+      return [TextSpan(text: verse.text)];
+    }
+    return [
+      for (final segment in segments)
+        TextSpan(
+            text: segment.text,
+            style: TextStyle(
+                color: redLetters && segment.wordsOfJesus ? red : null,
+                fontStyle: segment.italic ? FontStyle.italic : null))
+    ];
   }
 
-  Widget readerToolbar(BuildContext context) => Center(
-          child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800),
-        child: Container(
-            key: const ValueKey('reader-toolbar'),
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .outlineVariant
-                        .withValues(alpha: .45))),
-            child: Row(children: [
-              Expanded(
-                  child: Tooltip(
-                      message: 'Choose a book and chapter',
-                      child: TextButton(
-                          onPressed: () => pickPassage(context),
-                          style: TextButton.styleFrom(
-                              minimumSize: const Size(0, 44),
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 10),
-                              foregroundColor:
-                                  Theme.of(context).colorScheme.onSurface),
-                          child: Row(children: [
-                            Expanded(
-                                child: Text(
-                                    '${bible!.books[bookIndex].name} ${chapterIndex + 1}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600))),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.keyboard_arrow_down_rounded,
-                                size: 20),
-                          ])))),
-              IconButton(
-                  tooltip: 'Search Bible',
-                  onPressed: () => selectPage(2),
-                  icon: const Icon(Icons.search_rounded, size: 22)),
-              const SizedBox(width: 4),
-              Tooltip(
-                  message: bible!.title,
-                  child: FilledButton.tonal(
-                    key: const ValueKey('translation-picker'),
-                    style: FilledButton.styleFrom(
-                        minimumSize: const Size(56, 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16))),
-                    onPressed: () => manageTranslations(context),
-                    child: Text(bible!.abbreviation,
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600)),
-                  )),
-              const SizedBox(width: 6),
-              Tooltip(
-                  message: 'Adjust text size',
-                  child: TextButton(
-                    key: const ValueKey('text-size'),
-                    style: TextButton.styleFrom(
-                        minimumSize: const Size(44, 44),
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16))),
-                    onPressed: () => adjustText(context),
-                    child: const Text('AA',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                  )),
-            ])),
-      ));
+  Future<void> showTranslationFootnotes(String reference) => showDialog<void>(
+      context: navigatorKey.currentContext!,
+      builder: (context) => SelahDialog(
+            title: Text('${bible!.reference(reference)} · Footnotes'),
+            content: SizedBox(
+                width: 480,
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${bible!.title} · Translation footnotes',
+                          style: Theme.of(context).textTheme.labelLarge),
+                      const SizedBox(height: 16),
+                      for (final note
+                          in bible!.verse(reference).readingFormat?.notes ??
+                              <String>[])
+                        Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: SelectableText(note,
+                                style: const TextStyle(
+                                    fontFamily: 'SourceSerif4',
+                                    fontSize: 18,
+                                    height: 1.5))),
+                      const Text(
+                          'Source: AO Lab structured edition. These are publisher notes, separate from your personal reflections.',
+                          style: TextStyle(fontSize: 12)),
+                    ])),
+          ));
+
+  List<InlineSpan> verseIndicators(String reference, BibleVerse verse) => [
+        if (verse.readingFormat?.notes.isNotEmpty ?? false)
+          WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: IconButton(
+                  key: ValueKey('translation-footnotes-$reference'),
+                  tooltip: 'Translation footnotes',
+                  iconSize: 17,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => showTranslationFootnotes(reference),
+                  icon: const Icon(Icons.chat_bubble_outline_rounded))),
+        if (relatedReferences(reference, notes.keys).isNotEmpty)
+          WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: IconButton(
+                  key: ValueKey('verse-note-$reference'),
+                  tooltip: 'Open note',
+                  iconSize: 18,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    final related = relatedReferences(reference, notes.keys);
+                    if (related.length == 1) {
+                      annotate(related.first);
+                    } else {
+                      showVerseActions(navigatorKey.currentContext!, reference);
+                    }
+                  },
+                  icon: const Icon(Icons.sticky_note_2_outlined))),
+        if (relatedReferences(reference, saved).isNotEmpty)
+          const WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Icon(Icons.bookmark, size: 16)),
+      ];
+
+  Future<void> openCrossReference(String reference) async {
+    final query = reference.replaceAll('–', '-').replaceAll('—', '-');
+    final result = await (searchEngine ??= BibleSearch(bible!)).search(query);
+    if (!mounted) return;
+    if (result.hits.isNotEmpty) {
+      final hit = result.hits.first;
+      openChapter(hit.bookIndex, hit.chapterIndex, targetVerse: hit.key);
+    } else {
+      searchQuery = query;
+      selectPage(2);
+    }
+  }
+
+  List<Widget> chapterContent(
+      BuildContext context, BibleBook book, List<BibleVerse> verses) {
+    final result = <Widget>[];
+    var group = <BibleVerse>[];
+    void flush() {
+      if (group.isEmpty) return;
+      result.add(PassageParagraph(
+          key: ValueKey(
+              'paragraph-${bible!.id}-$chapterReference-${group.first.number}'),
+          verses: List.of(group),
+          prefix: chapterReference,
+          fontSize: fontSize,
+          redLetters: redLetters,
+          anchors: verseAnchors,
+          geometry: paragraphGeometry,
+          background: (reference) => selectedPassage != null &&
+                  Bible.overlaps(selectedPassage!, reference)
+              ? Theme.of(context).colorScheme.primaryContainer
+              : reference == focusedVerse
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : verseHighlight(reference)?.withAlpha(65),
+          onVerse: (reference) => showVerseActions(context, reference),
+          indicators: verseIndicators));
+      group = [];
+    }
+
+    for (final verse in verses) {
+      final format = verse.readingFormat;
+      if (!paragraphs ||
+          format == null ||
+          format.paragraph ||
+          format.headings.isNotEmpty) {
+        flush();
+      }
+      if (format != null) {
+        for (final heading in format.headings) {
+          result.add(Padding(
+              padding: const EdgeInsets.fromLTRB(4, 16, 4, 12),
+              child: Text(heading,
+                  style: TextStyle(
+                      fontFamily: 'SourceSerif4',
+                      fontSize: fontSize * .95,
+                      fontWeight: FontWeight.w700))));
+        }
+        if (format.crossReferences.isNotEmpty) {
+          result.add(Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Wrap(spacing: 4, children: [
+                for (final reference in format.crossReferences)
+                  TextButton(
+                      style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          minimumSize: const Size(0, 40),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                      onPressed: () => openCrossReference(reference),
+                      child: Text(reference,
+                          style: const TextStyle(
+                              fontFamily: 'SourceSerif4',
+                              fontStyle: FontStyle.italic,
+                              fontSize: 14)))
+              ])));
+        }
+      }
+      if (paragraphs) {
+        group.add(verse);
+      } else {
+        result.add(verseTile('$chapterReference.${verse.number}'));
+      }
+    }
+    flush();
+    return result;
+  }
+
+  Widget readerToolbar(BuildContext context) => ReaderToolbar(
+      chapter: chapterLabel(chapterReference),
+      abbreviation: bible!.abbreviation,
+      translation: bible!.title,
+      onSearch: () {
+        searchQuery = chapterLabel(chapterReference);
+        selectPage(2);
+      },
+      onBooks: () => pickPassage(context),
+      onTranslation: () => manageTranslations(context),
+      onTextSize: () => adjustText(context),
+      onLayout: () => adjustText(context),
+      hasAudio: ChapterAudioController.available(bible!.id),
+      playing: chapterAudio.playing,
+      loading: chapterAudio.loading,
+      audioLabel: audioLabel,
+      onAudio: () => chapterAudio.toggle(
+          bible!.id, bible!.books[bookIndex].id, chapterIndex + 1));
 
   Widget reader(BuildContext context) {
     final book = bible!.books[bookIndex];
     final chapter = book.chapters[chapterIndex];
     final completed = history
         .any((entry) => entry.reference == chapterReference && entry.completed);
-    return Column(children: [
+    final wide = MediaQuery.sizeOf(context).width >= 1000;
+    final content = Column(children: [
       if (activeGrowthSession != null)
         Material(
             color: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -1572,6 +1666,7 @@ class _SelahAppState extends State<SelahApp> {
                   '${book.id}.${chapterIndex + 1}.${verse.number}'
               ],
               anchors: verseAnchors,
+              hitTestVerse: paragraphs ? paragraphGeometry.hit : null,
               onChanged: (reference) =>
                   setState(() => selectedPassage = reference),
               onFinished: (reference) async {
@@ -1666,9 +1761,7 @@ class _SelahAppState extends State<SelahApp> {
                                     fontSize: 30,
                                     fontWeight: FontWeight.w700)),
                             const SizedBox(height: 36),
-                            for (final verse in chapter)
-                              verseTile(
-                                  '${book.id}.${chapterIndex + 1}.${verse.number}'),
+                            ...chapterContent(context, book, chapter),
                             const SizedBox(height: 24),
                             ChapterCompletionCard(
                                 completed: completed,
@@ -1696,7 +1789,42 @@ class _SelahAppState extends State<SelahApp> {
                           ]),
                     ),
                   ))))),
-      SizedBox(width: double.infinity, child: readerDock(context, book)),
+      if (!wide)
+        SizedBox(width: double.infinity, child: readerDock(context, book)),
+    ]);
+    if (!wide) return content;
+    return Stack(children: [
+      Positioned.fill(child: content),
+      Positioned(
+          left: 16,
+          bottom: 16,
+          child: Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(18),
+              child: chapterArrow(context,
+                  previous: true, enabled: bookIndex > 0 || chapterIndex > 0))),
+      Positioned(
+          right: 16,
+          bottom: 16,
+          child: Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(18),
+              child: chapterArrow(context,
+                  previous: false,
+                  enabled: bookIndex < bible!.books.length - 1 ||
+                      chapterIndex < book.chapters.length - 1))),
+      if (!readerControlsVisible && ChapterAudioController.available(bible!.id))
+        Positioned(
+            bottom: 12,
+            left: 0,
+            right: 0,
+            child: Center(
+                child: AudioPlayButton(
+                    playing: chapterAudio.playing,
+                    loading: chapterAudio.loading,
+                    label: audioLabel,
+                    onPressed: () => chapterAudio.toggle(
+                        bible!.id, book.id, chapterIndex + 1)))),
     ]);
   }
 
@@ -1994,7 +2122,24 @@ class _SelahAppState extends State<SelahApp> {
                             fontFamily: 'sans-serif',
                           ),
                         ),
-                        TextSpan(text: bible!.verse(verse).text),
+                        ...scriptureSpans(context, bible!.verse(verse)),
+                        if (bible!
+                                .verse(verse)
+                                .readingFormat
+                                ?.notes
+                                .isNotEmpty ??
+                            false)
+                          WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: IconButton(
+                                  key: ValueKey('translation-footnotes-$verse'),
+                                  tooltip: 'Translation footnotes',
+                                  iconSize: 17,
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () =>
+                                      showTranslationFootnotes(verse),
+                                  icon: const Icon(
+                                      Icons.chat_bubble_outline_rounded))),
                         if (relatedReferences(verse, notes.keys).isNotEmpty)
                           WidgetSpan(
                             alignment: PlaceholderAlignment.middle,
