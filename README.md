@@ -2,9 +2,15 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.4.0](https://github.com/jhombalz/selah/releases/download/v0.4.0/selah-v0.4.0-android.apk)
+[Download SELAH Android v0.4.1](https://github.com/jhombalz/selah/releases/download/v0.4.1/selah-v0.4.1-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.4.1 adds optional Cebuano ULB and KJV offline downloads, isolates
+Home scroll state, and enables Android background audio with a media
+notification and lock-screen controls. WEB and BSB automatically continue
+across chapters when the phone is locked. Cebuano and KJV remain text-only.
+See [background audio and translation guide](docs/background-audio.md).
 
 Version 0.4.0 adds Bible → tap a verse → Study notes, with English Tyndale Open
 Study Notes, selected-passage and chapter views, source/license links and an

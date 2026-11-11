@@ -57,6 +57,22 @@ const translationCatalog = [
       'eng-asv',
       '8924ef74086d572425b1e335f531c7c529a561969e5c851e456b84c2ce6ad858',
       'American Standard Version (1901) — Public Domain.\nProvided by eBible.org. Scripture wording has not been changed.\nhttps://ebible.org/eng-asv/copyright.htm'),
+  TranslationSpec(
+      'cebulb',
+      'Balaan nga Bibliya (Cebuano Unlocked Literal Bible)',
+      'ULB',
+      'Cebuano',
+      'cebulb',
+      'd60ffb97d0d5816d00396c62812ec469bf7d9880de41ed392c6d8a9254661509',
+      'Cebuano Unlocked Literal Bible · © 2019 Door43 World Missions Community.\nCC BY-SA 4.0 · https://creativecommons.org/licenses/by-sa/4.0/\nContributors: Aida Espelita, Aira Amaran, Alma Mae Llorca, Amelina Emboc, Analine Tanog, Bernaly Mansiwagan, Carwelene Amper, Chally Lou Lacaran, Charity Guinita, Dan Bongcalas, Darryl Lasquite, Divine Grace Leparto, Elsie Lacubay, Ernilyn Balindong, Gem Lalaan, Helen Thundas, Jerome Resomadero, Jeryl Tumundog, Johnny Ray Lumawan, Loreto Socias Jr., Luthero Pulao Jr., Lymae Belle Ednalgan, Marilyn Lay-um, Mark Kevin Atab, Marth Anthony Atab, Miracle Marcojos, Molly, Noel Dalumatao, Rico Barrios, Ricky Mansabid, Romeo Lumasay, Roselle Lay-um, Steven Lubosan, Jeffrey, Johanna, Junette, Benny, and Racquel.\nhttps://ebible.org/cebulb/copyright.htm\nScripture wording is unchanged; source formatting, footnotes and headings are omitted. Redistribution of this translation remains under CC BY-SA 4.0.'),
+  TranslationSpec(
+      'kjv',
+      'King James Version',
+      'KJV',
+      'English',
+      'eng-kjv2006',
+      '68c5f764bf1c204868c3eb72592035c0947f057b608c2149dbff765d8ddd86f6',
+      'King James (Authorized) Version — Public Domain outside the United Kingdom.\nRights in the United Kingdom are vested in the Crown; this edition is intended for use where public-domain status applies, including the Philippines.\nSource: eBible.org, eng-kjv2006. Scripture wording has not been changed.\nhttps://ebible.org/eng-kjv2006/'),
 ];
 
 class DownloadCancelled implements Exception {}
@@ -185,7 +201,11 @@ Future<Bible> parseTranslation(String text, TranslationSpec spec, Bible bundled,
   }
   return Bible([
     for (int i = 0; i < bundled.books.length; i++)
-      BibleBook(bundled.books[i].id, englishBookNames[i],
+      BibleBook(
+          bundled.books[i].id,
+          spec.language == 'Cebuano'
+              ? cebuanoBookNames[i]
+              : englishBookNames[i],
           chapters[bundled.books[i].id]!)
   ], spec.title,
       id: spec.id,

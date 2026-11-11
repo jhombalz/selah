@@ -8,8 +8,14 @@ import android.os.Bundle
 
 /** Device smoke test; run on a test emulator, never a user's phone. */
 class JourneySmokeInstrumentation : Instrumentation() {
-    override fun onCreate(arguments: Bundle?) { super.onCreate(arguments); start() }
+    private var audioSmoke = false
+    override fun onCreate(arguments: Bundle?) {
+        super.onCreate(arguments)
+        audioSmoke = arguments?.getString("audio") == "true"
+        start()
+    }
     override fun onStart() {
+        if (audioSmoke) { BackgroundAudioSmoke.run(this); return }
         val context = targetContext
         val preferences = context.getSharedPreferences("selah_reminder_v1", 0)
         val previous = preferences.all.toMap()

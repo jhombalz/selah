@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_session/audio_session.dart';
+import '../../data/book_names.dart';
 
 enum ChapterAudioStatus { idle, loading, playing, paused, error }
 
@@ -89,6 +92,8 @@ abstract class ChapterAudioBackend {
 }
 
 class StreamingAudioBackend implements ChapterAudioBackend {
+  String mediaTitle = 'Bible audio';
+  String mediaAlbum = 'SELAH';
   final player = AudioPlayer();
   final events = StreamController<AudioSignal>.broadcast();
   late final StreamSubscription<PlayerState> states;
@@ -121,7 +126,14 @@ class StreamingAudioBackend implements ChapterAudioBackend {
   Stream<AudioSignal> get signals => events.stream;
   @override
   Future<void> load(Uri url) async {
-    await player.setUrl(url.toString());
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.speech());
+    await player.setAudioSource(AudioSource.uri(url,
+        tag: MediaItem(
+            id: url.toString(),
+            title: mediaTitle,
+            album: mediaAlbum,
+            artist: 'SELAH • Recorded Bible narration')));
   }
 
   @override
@@ -232,7 +244,8 @@ class ChapterAudioController extends ChangeNotifier {
     return _backend!;
   }
 
-  Future<void> toggle(String translation, String book, int chapter) async {
+  Future<void> toggle(String translation, String book, int chapter,
+      {bool continuePlayback = false}) async {
     if (_disposed) return;
     final scope = '$translation:$book.$chapter';
     if (!available(translation)) {
@@ -241,10 +254,20 @@ class ChapterAudioController extends ChangeNotifier {
     }
     if (loading && _scope == scope) return;
     if (_scope != scope) {
-      final stopping = stop();
-      final stoppedGeneration = _generation;
-      await stopping;
-      if (_disposed || stoppedGeneration != _generation) return;
+      if (continuePlayback && _completed && _scope != null) {
+        // Keep the foreground media service alive at a natural chapter boundary.
+        _generation++;
+        _acceptSignals = false;
+        _loaded = null;
+        _completed = false;
+        position = Duration.zero;
+        duration = Duration.zero;
+      } else {
+        final stopping = stop();
+        final stoppedGeneration = _generation;
+        await stopping;
+        if (_disposed || stoppedGeneration != _generation) return;
+      }
       _scope = scope;
     }
     if (_disposed) return;
@@ -273,6 +296,81 @@ class ChapterAudioController extends ChangeNotifier {
         throw StateError('No verified recording for this chapter.');
       }
       if (_loaded != url) {
+        final output = backend;
+        if (output is StreamingAudioBackend) {
+          const ids = [
+            'GEN',
+            'EXO',
+            'LEV',
+            'NUM',
+            'DEU',
+            'JOS',
+            'JDG',
+            'RUT',
+            '1SA',
+            '2SA',
+            '1KI',
+            '2KI',
+            '1CH',
+            '2CH',
+            'EZR',
+            'NEH',
+            'EST',
+            'JOB',
+            'PSA',
+            'PRO',
+            'ECC',
+            'SNG',
+            'ISA',
+            'JER',
+            'LAM',
+            'EZK',
+            'DAN',
+            'HOS',
+            'JOL',
+            'AMO',
+            'OBA',
+            'JON',
+            'MIC',
+            'NAM',
+            'HAB',
+            'ZEP',
+            'HAG',
+            'ZEC',
+            'MAL',
+            'MAT',
+            'MRK',
+            'LUK',
+            'JHN',
+            'ACT',
+            'ROM',
+            '1CO',
+            '2CO',
+            'GAL',
+            'EPH',
+            'PHP',
+            'COL',
+            '1TH',
+            '2TH',
+            '1TI',
+            '2TI',
+            'TIT',
+            'PHM',
+            'HEB',
+            'JAS',
+            '1PE',
+            '2PE',
+            '1JN',
+            '2JN',
+            '3JN',
+            'JUD',
+            'REV'
+          ];
+          final index = ids.indexOf(book);
+          output.mediaTitle =
+              '${index < 0 ? book : englishBookNames[index]} $chapter';
+          output.mediaAlbum = '${translation.toUpperCase()} • Bible';
+        }
         await backend.load(url).timeout(const Duration(seconds: 25));
         if (_disposed || generation != _generation) return;
         _loaded = url;

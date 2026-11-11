@@ -116,6 +116,26 @@ void main() {
   });
 
   test(
+      'Natural continuation keeps the background player alive between chapters',
+      () async {
+    final backend = FakeAudioBackend();
+    final audio = ChapterAudioController(
+        backendFactory: () => backend, catalogLoader: () async => catalog);
+    addTearDown(audio.dispose);
+    await audio.toggle('web', 'GEN', 1);
+    final stops = backend.stops;
+    backend.events.add(const AudioSignal(completed: true));
+    await audio.toggle('web', 'GEN', 2, continuePlayback: true);
+    expect(backend.stops, stops);
+    expect(audio.scope, 'web:GEN.2');
+    expect(audio.playing, isTrue);
+    expect(backend.loads.last, catalog.chapter('web', 'GEN', 2));
+    // Manual navigation still stops the previous recording.
+    await audio.toggle('web', 'GEN', 3);
+    expect(backend.stops, greaterThan(stops));
+  });
+
+  test(
       'Natural completion requests continuation once; stop ignores stale events',
       () async {
     final backend = FakeAudioBackend();

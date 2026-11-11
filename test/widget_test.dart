@@ -67,6 +67,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Home scrolls back up after swipes, navigation and rebuilds',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(SelahApp(
+        initialBible: bible,
+        database: database,
+        initialData: const UserData()));
+    final home = find.byKey(const PageStorageKey('home-scroll'));
+    final list = tester.widget<ListView>(home);
+    final controller = list.controller!;
+    for (var i = 0; i < 3; i++) {
+      await tester.drag(home, const Offset(0, -450));
+      await tester.pumpAndSettle();
+    }
+    expect(controller.offset, greaterThan(300));
+    await tester.tap(find.text('Saved'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Dark theme'));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 6 && controller.offset > 0; i++) {
+      await tester.drag(home, const Offset(0, 450));
+      await tester.pumpAndSettle();
+    }
+    expect(controller.offset, 0);
+    expect(find.text('Continue Reading').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Chapter navigation and bookmarks use Scripture references',
       (tester) async {
     tester.view.physicalSize = const Size(1280, 1000);

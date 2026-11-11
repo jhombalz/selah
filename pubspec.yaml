@@ -1,11 +1,13 @@
 name: selah
 description: An offline-first Cebuano Bible companion. Pause. Reflect. Grow.
 publish_to: none
-version: 0.4.0+12
+version: 0.4.1+13
 environment:
   sdk: '>=3.4.0 <4.0.0'
 dependencies:
   archive: ^4.6.0
+  audio_service: ^0.18.19
+  audio_session: ^0.2.4
   crypto: ^3.0.8
   drift: ^2.35.3
   drift_flutter: ^0.3.1
@@ -14,6 +16,7 @@ dependencies:
     sdk: flutter
   http: ^1.6.0
   just_audio: ^0.10.6
+  just_audio_background: ^0.0.1-beta.17
   share_plus: ^13.3.1
   url_launcher: ^6.3.3
 dev_dependencies:

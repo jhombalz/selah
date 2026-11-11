@@ -2,6 +2,7 @@ import 'features/common/selah_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:flutter/foundation.dart'
     show LicenseRegistry, LicenseEntryWithLineBreaks;
 import 'package:flutter/rendering.dart' show ScrollDirection;
@@ -32,7 +33,15 @@ import 'features/growth/growth_share.dart';
 import 'features/focus/focus_controller.dart';
 import 'features/focus/focus_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.example.selah.bible_audio',
+    androidNotificationChannelName: 'Bible audio',
+    androidNotificationIcon: 'drawable/ic_audio_notification',
+    androidNotificationOngoing: false,
+    androidStopForegroundOnPause: false,
+  );
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(['Source Serif 4'],
         await rootBundle.loadString('assets/fonts/source-serif-4/OFL.txt'));
@@ -271,10 +280,13 @@ class _SelahAppState extends State<SelahApp> {
       chapter = 0;
     }
     // Stop at the end of Scripture; never wrap back to Genesis.
-    if (book >= bible!.books.length) return;
-    openChapter(book, chapter);
-    unawaited(
-        chapterAudio.toggle(bible!.id, bible!.books[book].id, chapter + 1));
+    if (book >= bible!.books.length) {
+      unawaited(chapterAudio.stop());
+      return;
+    }
+    openChapter(book, chapter, preserveAudio: true);
+    unawaited(chapterAudio.toggle(bible!.id, bible!.books[book].id, chapter + 1,
+        continuePlayback: true));
   }
 
   void saveAudioPosition() {
@@ -389,6 +401,7 @@ class _SelahAppState extends State<SelahApp> {
   int bookIndex = 0;
   int chapterIndex = 0;
   final readerScroll = ScrollController();
+  final homeScroll = ScrollController();
   late final UserDatabase database;
   late final DailyVerseRepository dailyVerses;
   List<ReadingEntry> history = [];
@@ -606,13 +619,14 @@ class _SelahAppState extends State<SelahApp> {
   }
 
   void openChapter(int book, int chapter,
-      {double offset = 0, String? targetVerse}) {
+      {double offset = 0, String? targetVerse, bool preserveAudio = false}) {
     final keepHidden =
         page == 1 && !readerControlsVisible && targetVerse == null;
     readerRevealAtTopOnly = keepHidden;
     readerScrollIntent.reset();
     readerUserScrolling = false;
-    if (page != 1 || book != bookIndex || chapter != chapterIndex) {
+    if (!preserveAudio &&
+        (page != 1 || book != bookIndex || chapter != chapterIndex)) {
       unawaited(chapterAudio.stop());
     }
     setState(() {
@@ -709,6 +723,7 @@ class _SelahAppState extends State<SelahApp> {
     chapterAudio.onCompleted = null;
     chapterAudio.dispose();
     readerScroll.dispose();
+    homeScroll.dispose();
     if (widget.database == null) {
       pendingWrites.whenComplete(database.close);
     }
@@ -1160,199 +1175,218 @@ class _SelahAppState extends State<SelahApp> {
 
   Widget home(BuildContext context) {
     final completed = history.where((entry) => entry.completed).length;
-    return centered(ListView(padding: const EdgeInsets.all(28), children: [
-      const SizedBox(height: 16),
-      Text('PAUSE. REFLECT. GROW.',
-          style: TextStyle(
-              letterSpacing: 3,
-              fontSize: 11,
-              color: Theme.of(context).colorScheme.primary)),
-      const SizedBox(height: 20),
-      const Text('Pause here.\nGrow in the Word.',
-          style:
-              TextStyle(fontFamily: 'SourceSerif4', fontSize: 36, height: 1.2)),
-      const SizedBox(height: 16),
-      const Text('Find a quiet moment with Scripture, one chapter at a time.'),
-      const SizedBox(height: 28),
-      Card(
-          child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                        history.isEmpty
-                            ? 'YOUR FIRST MOMENT'
-                            : 'PICK UP WHERE YOU PAUSED',
-                        style: const TextStyle(fontSize: 11, letterSpacing: 2)),
-                    const SizedBox(height: 12),
-                    Text(chapterLabel(chapterReference),
-                        style: const TextStyle(
-                            fontFamily: 'SourceSerif4', fontSize: 28)),
-                    Text('${bible!.title} · ${bible!.language}'),
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                        onPressed: () => openChapter(bookIndex, chapterIndex,
-                            offset: resumeOffset),
-                        icon: const Icon(Icons.menu_book_outlined),
-                        label: const Text('Continue Reading')),
-                  ]))),
-      const SizedBox(height: 24),
-      DailyVerseCard(
-          bible: bible!,
-          repository: dailyVerses,
-          onOpen: (reference) {
-            final parts = reference.split('.');
-            openChapter(bible!.books.indexWhere((book) => book.id == parts[0]),
-                int.parse(parts[1]) - 1,
-                targetVerse: reference);
-          }),
-      const SizedBox(height: 24),
-      Card(
-          child: ListTile(
-              contentPadding: const EdgeInsets.all(20),
-              leading: const Icon(Icons.spa_outlined, size: 32),
-              title: const Text('My time with God'),
-              subtitle: const Text(
-                  'Pause. Read. Reflect. Pray. Live.\nGuided moments and your private prayer journal.'),
-              isThreeLine: true,
-              trailing: const Icon(Icons.chevron_right),
-              onTap: openGrowthPage)),
-      Card(
-          child: ListTile(
-              leading: const Icon(Icons.quiz_outlined),
-              title: const Text('Bible assessments'),
-              subtitle: const Text(
-                  'Five levels · Learn, reflect, and grow in understanding'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => openAssessments())),
-      const SizedBox(height: 24),
-      Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Your reading journey',
-                        style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 6),
-                    Text('A little each day, at your own pace.',
-                        style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant)),
-                    const SizedBox(height: 22),
-                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Text('${(completed / 1189 * 100).toStringAsFixed(1)}%',
-                          style: const TextStyle(
-                              fontFamily: 'SourceSerif4', fontSize: 36)),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                          child: Padding(
-                              padding: EdgeInsets.only(bottom: 7),
-                              child: Text('of the Bible read',
-                                  style: TextStyle(fontSize: 12)))),
-                    ]),
-                    const SizedBox(height: 12),
-                    LinearProgressIndicator(
-                        value: completed / 1189,
-                        minHeight: 8,
-                        borderRadius: BorderRadius.circular(8)),
-                    const SizedBox(height: 12),
-                    Text('$completed of 1,189 chapters marked as read',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant)),
-                    const SizedBox(height: 22),
-                    Row(
+    return centered(ListView(
+        key: const PageStorageKey('home-scroll'),
+        controller: homeScroll,
+        primary: false,
+        padding: const EdgeInsets.all(28),
+        children: [
+          const SizedBox(height: 16),
+          Text('PAUSE. REFLECT. GROW.',
+              style: TextStyle(
+                  letterSpacing: 3,
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.primary)),
+          const SizedBox(height: 20),
+          const Text('Pause here.\nGrow in the Word.',
+              style: TextStyle(
+                  fontFamily: 'SourceSerif4', fontSize: 36, height: 1.2)),
+          const SizedBox(height: 16),
+          const Text(
+              'Find a quiet moment with Scripture, one chapter at a time.'),
+          const SizedBox(height: 28),
+          Card(
+              child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            history.isEmpty
+                                ? 'YOUR FIRST MOMENT'
+                                : 'PICK UP WHERE YOU PAUSED',
+                            style: const TextStyle(
+                                fontSize: 11, letterSpacing: 2)),
+                        const SizedBox(height: 12),
+                        Text(chapterLabel(chapterReference),
+                            style: const TextStyle(
+                                fontFamily: 'SourceSerif4', fontSize: 28)),
+                        Text('${bible!.title} · ${bible!.language}'),
+                        const SizedBox(height: 20),
+                        FilledButton.icon(
+                            onPressed: () => openChapter(
+                                bookIndex, chapterIndex,
+                                offset: resumeOffset),
+                            icon: const Icon(Icons.menu_book_outlined),
+                            label: const Text('Continue Reading')),
+                      ]))),
+          const SizedBox(height: 24),
+          DailyVerseCard(
+              bible: bible!,
+              repository: dailyVerses,
+              onOpen: (reference) {
+                final parts = reference.split('.');
+                openChapter(
+                    bible!.books.indexWhere((book) => book.id == parts[0]),
+                    int.parse(parts[1]) - 1,
+                    targetVerse: reference);
+              }),
+          const SizedBox(height: 24),
+          Card(
+              child: ListTile(
+                  contentPadding: const EdgeInsets.all(20),
+                  leading: const Icon(Icons.spa_outlined, size: 32),
+                  title: const Text('My time with God'),
+                  subtitle: const Text(
+                      'Pause. Read. Reflect. Pray. Live.\nGuided moments and your private prayer journal.'),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: openGrowthPage)),
+          Card(
+              child: ListTile(
+                  leading: const Icon(Icons.quiz_outlined),
+                  title: const Text('Bible assessments'),
+                  subtitle: const Text(
+                      'Five levels · Learn, reflect, and grow in understanding'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => openAssessments())),
+          const SizedBox(height: 24),
+          Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Your reading journey',
+                            style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 6),
+                        Text('A little each day, at your own pace.',
+                            style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
+                        const SizedBox(height: 22),
+                        Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                  '${(completed / 1189 * 100).toStringAsFixed(1)}%',
+                                  style: const TextStyle(
+                                      fontFamily: 'SourceSerif4',
+                                      fontSize: 36)),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                  child: Padding(
+                                      padding: EdgeInsets.only(bottom: 7),
+                                      child: Text('of the Bible read',
+                                          style: TextStyle(fontSize: 12)))),
+                            ]),
+                        const SizedBox(height: 12),
+                        LinearProgressIndicator(
+                            value: completed / 1189,
+                            minHeight: 8,
+                            borderRadius: BorderRadius.circular(8)),
+                        const SizedBox(height: 12),
+                        Text('$completed of 1,189 chapters marked as read',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant)),
+                        const SizedBox(height: 22),
+                        Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              journeyStat(context,
+                                  icon: Icons.bookmark_border_rounded,
+                                  count: saved.length,
+                                  label: 'Bookmarks'),
+                              const SizedBox(width: 12),
+                              journeyStat(context,
+                                  icon: Icons.edit_note_rounded,
+                                  count: notes.length,
+                                  label: 'Reflections'),
+                            ]),
+                      ]))),
+          const SizedBox(height: 28),
+          Text('Recently opened',
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          if (history.isEmpty)
+            Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                    padding: const EdgeInsets.all(22),
+                    child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          journeyStat(context,
-                              icon: Icons.bookmark_border_rounded,
-                              count: saved.length,
-                              label: 'Bookmarks'),
-                          const SizedBox(width: 12),
-                          journeyStat(context,
-                              icon: Icons.edit_note_rounded,
-                              count: notes.length,
-                              label: 'Reflections'),
-                        ]),
-                  ]))),
-      const SizedBox(height: 28),
-      Text('Recently opened', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 12),
-      if (history.isEmpty)
-        Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-                padding: const EdgeInsets.all(22),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.auto_stories_outlined,
-                          color: Theme.of(context).colorScheme.primary),
-                      const SizedBox(height: 12),
-                      const Text('Your next chapter starts here.',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 8),
-                      const Text(
-                          'Recently opened chapters will appear here. Mark a chapter as read when you finish.'),
-                    ]))),
-      if (history.isNotEmpty)
-        Card(
-            margin: EdgeInsets.zero,
-            clipBehavior: Clip.antiAlias,
-            child: Column(children: [
-              for (int index = 0; index < history.take(5).length; index++) ...[
-                if (index > 0)
-                  Divider(
-                      height: 1,
-                      indent: 78,
-                      endIndent: 18,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outlineVariant
-                          .withValues(alpha: .5)),
-                historyTile(context, history[index]),
-              ],
-            ])),
-      if (history.length > 5)
-        TextButton(
-            onPressed: () => showDialog<void>(
-                context: context,
-                builder: (dialogContext) => SelahDialog(
-                      title: const Text('Reading history'),
-                      content: SizedBox(
-                          width: 560,
-                          height: 460,
-                          child: ListView.builder(
-                              itemCount: history.length,
-                              itemBuilder: (context, index) => historyTile(
-                                  context, history[index],
-                                  close: () => Navigator.pop(dialogContext)))),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            child: const Text('Close'))
-                      ],
-                    )),
-            child: const Text('View reading history')),
-      const SizedBox(height: 24),
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(Icons.lock_outline_rounded,
-            size: 15, color: Theme.of(context).colorScheme.onSurfaceVariant),
-        const SizedBox(width: 8),
-        Expanded(
-            child: Text(
-                'Your reflections stay on this device. No account needed.',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant))),
-      ]),
-    ]));
+                          Icon(Icons.auto_stories_outlined,
+                              color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(height: 12),
+                          const Text('Your next chapter starts here.',
+                              style: TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          const Text(
+                              'Recently opened chapters will appear here. Mark a chapter as read when you finish.'),
+                        ]))),
+          if (history.isNotEmpty)
+            Card(
+                margin: EdgeInsets.zero,
+                clipBehavior: Clip.antiAlias,
+                child: Column(children: [
+                  for (int index = 0;
+                      index < history.take(5).length;
+                      index++) ...[
+                    if (index > 0)
+                      Divider(
+                          height: 1,
+                          indent: 78,
+                          endIndent: 18,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .outlineVariant
+                              .withValues(alpha: .5)),
+                    historyTile(context, history[index]),
+                  ],
+                ])),
+          if (history.length > 5)
+            TextButton(
+                onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (dialogContext) => SelahDialog(
+                          title: const Text('Reading history'),
+                          content: SizedBox(
+                              width: 560,
+                              height: 460,
+                              child: ListView.builder(
+                                  itemCount: history.length,
+                                  itemBuilder: (context, index) => historyTile(
+                                      context, history[index],
+                                      close: () =>
+                                          Navigator.pop(dialogContext)))),
+                          actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(dialogContext),
+                                child: const Text('Close'))
+                          ],
+                        )),
+                child: const Text('View reading history')),
+          const SizedBox(height: 24),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.lock_outline_rounded,
+                size: 15,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(
+                    'Your reflections stay on this device. No account needed.',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color:
+                            Theme.of(context).colorScheme.onSurfaceVariant))),
+          ]),
+        ]));
   }
 
   Future<void> pickPassage(BuildContext context) async {

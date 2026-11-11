@@ -32,12 +32,25 @@ void main() {
       expect(
           bible.books.fold<int>(0, (sum, book) => sum + book.chapters.length),
           1189);
-      expect(bible.verse('JHN.3.16').text.toLowerCase(),
-          contains(spec.language == 'Tagalog' ? 'diyos' : 'god so loved'));
+      expect(
+          bible.verse('JHN.3.16').text.toLowerCase(),
+          contains(spec.language == 'Tagalog'
+              ? 'diyos'
+              : spec.language == 'Cebuano'
+                  ? 'gihigugma'
+                  : 'god so loved'));
       expect(bible.verse('GEN.1.17-18').text,
           contains(bible.verse('GEN.1.18').text));
-      expect(bible.licenseText,
-          contains(spec.id == 'tglulb' ? 'CC BY-SA 4.0' : 'Public Domain'));
+      expect(
+          bible.licenseText,
+          contains(spec.id == 'tglulb' || spec.id == 'cebulb'
+              ? 'CC BY-SA 4.0'
+              : 'Public Domain'));
+      if (spec.id == 'cebulb') {
+        expect(bible.books.first.name, 'Genesis');
+        expect(bible.books.last.name, 'Gipadayag');
+        expect(bible.licenseText, contains('Aida Espelita'));
+      }
       if (spec.id == 'tglulb') {
         expect(bible.licenseText, contains('Abantes'));
       }
