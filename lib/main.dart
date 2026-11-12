@@ -1594,22 +1594,10 @@ class _SelahAppState extends State<SelahApp> {
   Future<void> pickPassage(BuildContext context) async {
     await chapterAudio.stop();
     if (!context.mounted) return;
-    final picker = PassagePicker(
+    final selection = await PassagePicker.open(context,
         bible: selectedBible,
         currentBook: bookIndex,
         currentChapter: chapterIndex);
-    final selection = MediaQuery.sizeOf(context).width < 840
-        ? await Navigator.of(context).push<PassageSelection>(
-            MaterialPageRoute(fullscreenDialog: true, builder: (_) => picker))
-        : await showDialog<PassageSelection>(
-            context: context,
-            builder: (context) => SelahDialog(
-                  contentPadding: EdgeInsets.zero,
-                  content: SizedBox(
-                      width: 600,
-                      height: MediaQuery.sizeOf(context).height * .8,
-                      child: picker),
-                ));
     if (selection != null && mounted) {
       openChapter(selection.book, selection.chapter);
     }

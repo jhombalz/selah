@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:selah/data/bible.dart';
 import 'package:selah/data/book_categories.dart';
 import 'package:selah/features/reader/passage_picker.dart';
+import 'package:selah/features/common/selah_dialog.dart';
+import 'package:selah/data/licensed_bible.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -49,8 +51,7 @@ void main() {
     final current = find.byKey(const ValueKey('pick-book-JHN'));
     expect(current.hitTestable(), findsOneWidget);
     expect(tester.widget<ListTile>(current).selected, isTrue);
-    expect(find.text('History of Jesus (Gospels)'), findsOneWidget);
-    expect(find.text('History of the Church (Acts)'), findsOneWidget);
+    expect(find.text('Gospels'), findsOneWidget);
     expect(find.text('History'), findsOneWidget);
     await tester.tap(current);
     await tester.pumpAndSettle();
@@ -59,6 +60,75 @@ void main() {
     expect(selection!.book, 42);
     expect(selection!.chapter, 15);
     expect(find.text('Open picker'), findsOneWidget);
+  });
+
+  testWidgets(
+      'History keeps Gospel cross-listing and opens Acts from the Church subgroup',
+      (tester) async {
+    tester.view.physicalSize = const Size(600, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    PassageSelection? selection;
+    await tester.pumpWidget(MaterialApp(
+        home: Builder(
+            builder: (context) => Scaffold(
+                body: TextButton(
+                    onPressed: () async {
+                      selection = await PassagePicker.open(context,
+                          bible: bible, currentBook: 42, currentChapter: 0);
+                    },
+                    child: const Text('Open books'))))));
+    await tester.tap(find.text('Open books'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gospels'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('History'));
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+    expect(find.text('History of Jesus (Gospels)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('pick-book-history-jesus-JHN')),
+        findsOneWidget);
+    await tester.ensureVisible(find.text('History of the Church (Acts)'));
+    await tester.tap(find.text('History of the Church (Acts)'));
+    await tester.pumpAndSettle();
+    final acts = find.byKey(const ValueKey('pick-book-ACT'));
+    await tester.ensureVisible(acts);
+    await tester.tap(acts);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('pick-chapter-9')));
+    await tester.pumpAndSettle();
+    expect(selection!.book, 43);
+    expect(selection!.chapter, 8);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('NLT uses the shared styled book dialog on desktop',
+      (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+        home: Builder(
+            builder: (context) => Scaffold(
+                body: TextButton(
+                    onPressed: () => PassagePicker.open(context,
+                        bible:
+                            licensedBibleMetadata(bible, licensedEditions.last),
+                        currentBook: 42,
+                        currentChapter: 0),
+                    child: const Text('Open NLT books'))))));
+    await tester.tap(find.text('Open NLT books'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SelahDialog), findsOneWidget);
+    expect(find.byType(PassagePicker), findsOneWidget);
+    expect(find.byKey(const ValueKey('pick-book-JHN')).hitTestable(),
+        findsOneWidget);
+    await tester.tap(find.byTooltip('Close passage picker'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SelahDialog), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   for (final book in [0, 42]) {

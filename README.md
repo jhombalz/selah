@@ -2,9 +2,14 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.6.3](https://github.com/jhombalz/selah/releases/download/v0.6.3/selah-v0.6.3-android.apk)
+[Download SELAH Android v0.6.4](https://github.com/jhombalz/selah/releases/download/v0.6.4/selah-v0.6.4-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.6.4 uses one responsive book/chapter picker for all editions, including
+NIV/NLT. New Testament keeps Gospels and History as separate categories. History
+contains History of Jesus (the four Gospels) and History of the Church (Acts).
+The Gospel books are intentionally available in both navigation locations.
 
 Version 0.6.3 shortens the navigation label to Devotion and gives NIV/NLT the
 shared reader header, AA font settings, rounded mobile chapter dock and desktop

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../data/bible.dart';
 import '../../data/book_categories.dart';
 import '../../data/book_names.dart';
+import '../common/selah_dialog.dart';
+import 'book_category_list.dart';
 
 class PassageSelection {
   final int book;
@@ -18,6 +20,27 @@ class PassagePicker extends StatefulWidget {
       required this.bible,
       required this.currentBook,
       required this.currentChapter});
+
+  static Future<PassageSelection?> open(BuildContext context,
+      {required Bible bible,
+      required int currentBook,
+      required int currentChapter}) {
+    final picker = PassagePicker(
+        bible: bible, currentBook: currentBook, currentChapter: currentChapter);
+    if (MediaQuery.sizeOf(context).width < 840) {
+      return Navigator.of(context).push<PassageSelection>(
+          MaterialPageRoute(fullscreenDialog: true, builder: (_) => picker));
+    }
+    return showDialog<PassageSelection>(
+        context: context,
+        builder: (context) => SelahDialog(
+            contentPadding: EdgeInsets.zero,
+            content: SizedBox(
+                width: 600,
+                height: MediaQuery.sizeOf(context).height * .8,
+                child: picker)));
+  }
+
   @override
   State<PassagePicker> createState() => _PassagePickerState();
 }
@@ -93,117 +116,20 @@ class _PassagePickerState extends State<PassagePicker> {
     ].any((name) => name.toLowerCase().contains(text));
   }
 
-  Widget categorizedBooks(BuildContext context) {
-    final books = widget.bible.books;
-    final searchingAll = query.trim().isNotEmpty;
-    final groups = [
-      for (final group in bookCategories)
-        if ((searchingAll || group.oldTestament == oldTestament) &&
-            books.asMap().entries.any((entry) =>
-                group.books.contains(entry.value.id) && matchesBook(entry.key)))
-          group
-    ];
-    if (groups.isEmpty) {
-      return const Center(
-          child: Text('No books found. Try another book name.'));
-    }
-    return SingleChildScrollView(
-      key: const PageStorageKey('passage-picker-books-scroll'),
+  Widget categorizedBooks(BuildContext context) => BookCategoryList(
+      bible: widget.bible,
+      oldTestament: oldTestament,
+      query: query,
+      currentBook: widget.currentBook,
+      expanded: expandedCategories,
       controller: booksScroll,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-      child: Column(children: [
-        for (final group in groups) ...[
-          if (group.section != null &&
-              (groups.indexOf(group) == 0 ||
-                  groups[groups.indexOf(group) - 1].section != group.section))
-            Padding(
-                padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
-                child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(group.section!,
-                        style: Theme.of(context).textTheme.titleMedium))),
-          Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              elevation: 0,
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
-              child: ExpansionTile(
-                // ExpansionTile stores a bool in PageStorage. Give it its own
-                // identifier so it cannot read the ancestor scroll offset.
-                key: PageStorageKey('book-category-${group.id}-$query'),
-                shape: const Border(),
-                collapsedShape: const Border(),
-                tilePadding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
-                childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                leading: Icon(Icons.auto_stories_outlined,
-                    size: 22, color: Theme.of(context).colorScheme.primary),
-                initiallyExpanded:
-                    searchingAll || expandedCategories.contains(group.id),
-                onExpansionChanged: (expanded) {
-                  if (searchingAll) return;
-                  if (expanded) {
-                    expandedCategories.add(group.id);
-                  } else {
-                    expandedCategories.remove(group.id);
-                  }
-                },
-                title: Semantics(
-                    header: true,
-                    child: Text(group.title,
-                        style: const TextStyle(fontWeight: FontWeight.w600))),
-                subtitle: Text(searchingAll
-                    ? (group.oldTestament ? 'Old Testament' : 'New Testament')
-                    : '${group.books.length} ${group.books.length == 1 ? 'book' : 'books'}'),
-                children: [
-                  for (int index = 0; index < books.length; index++)
-                    if (group.books.contains(books[index].id) &&
-                        matchesBook(index))
-                      Padding(
-                        key: index == widget.currentBook
-                            ? currentBookAnchor
-                            : null,
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: ListTile(
-                          key: ValueKey('pick-book-${books[index].id}'),
-                          contentPadding:
-                              const EdgeInsets.symmetric(horizontal: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
-                          minTileHeight: 60,
-                          title: Text(books[index].name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: index == widget.currentBook
-                                      ? FontWeight.w600
-                                      : FontWeight.w400)),
-                          subtitle: Text(
-                              '${books[index].chapters.length} chapters',
-                              style: const TextStyle(fontSize: 12)),
-                          selected: index == widget.currentBook,
-                          selectedTileColor:
-                              Theme.of(context).colorScheme.primaryContainer,
-                          selectedColor:
-                              Theme.of(context).colorScheme.onSurface,
-                          trailing: index == widget.currentBook
-                              ? const Icon(Icons.check_circle_rounded, size: 22)
-                              : const Icon(Icons.chevron_right_rounded,
-                                  size: 20),
-                          onTap: () {
-                            FocusScope.of(context).unfocus();
-                            setState(() => selectedBook = index);
-                          },
-                        ),
-                      ),
-                ],
-              )),
-        ],
-      ]),
-    );
-  }
+      currentAnchor: currentBookAnchor,
+      matchesBook: matchesBook,
+      onExpand: (id, expanded) {
+        if (query.trim().isNotEmpty) return;
+        expanded ? expandedCategories.add(id) : expandedCategories.remove(id);
+      },
+      onPick: (index) => setState(() => selectedBook = index));
 
   @override
   Widget build(BuildContext context) {

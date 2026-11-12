@@ -24,6 +24,12 @@ omitted for these editions. The mobile reader uses the same rounded chapter dock
 as offline editions; desktop has the same edge arrows. Deliberate scrolling hides
 menus, and changing chapters preserves that state until scrolling back to the top.
 
+Since v0.6.4, book/chapter selection uses the same shared picker for every edition:
+full-screen on phones and the styled SELAH dialog on large screens. New Testament
+has separate Gospels and History categories. History expands into History of Jesus
+(Matthew, Mark, Luke and John) and History of the Church (Acts). Gospel books are
+cross-listed for navigation; the Bible's books and progress counts are unchanged.
+
 ## Network use and offline copies
 
 - Only the chapter being opened is requested. There is no prefetch or bulk Bible

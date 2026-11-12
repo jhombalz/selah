@@ -238,17 +238,8 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
   }
 
   Future<void> pick() async {
-    final result = await showDialog<PassageSelection>(
-        context: context,
-        builder: (context) => Dialog(
-            clipBehavior: Clip.antiAlias,
-            child: SizedBox(
-                width: 600,
-                height: MediaQuery.sizeOf(context).height * .85,
-                child: PassagePicker(
-                    bible: template,
-                    currentBook: book,
-                    currentChapter: chapter))));
+    final result = await PassagePicker.open(context,
+        bible: template, currentBook: book, currentChapter: chapter);
     if (result != null && mounted) {
       book = result.book;
       chapter = result.chapter;

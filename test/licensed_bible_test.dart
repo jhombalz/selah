@@ -12,6 +12,7 @@ import 'package:selah/data/user_database.dart';
 import 'package:selah/features/reader/licensed_reader_page.dart';
 import 'package:selah/features/reader/reader_toolbar.dart';
 import 'package:selah/features/reader/chapter_navigation.dart';
+import 'package:selah/features/reader/passage_picker.dart';
 import 'package:selah/main.dart';
 
 Map<String, dynamic> chapterData(String book, int chapter, {String? edition}) =>
@@ -192,6 +193,12 @@ void main() {
     await settle();
     expect(find.byType(ReaderToolbar), findsOneWidget);
     expect(find.byType(ChapterNavigation), findsOneWidget);
+    await tester.tap(find.byTooltip('Choose a book and chapter'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PassagePicker), findsOneWidget);
+    expect(find.byType(Dialog), findsNothing);
+    await tester.tap(find.byTooltip('Close passage picker'));
+    await tester.pumpAndSettle();
     expect(find.byTooltip('Smaller text'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('text-size')));
     await tester.pumpAndSettle();
