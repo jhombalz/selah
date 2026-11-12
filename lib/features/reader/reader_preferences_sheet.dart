@@ -5,6 +5,8 @@ class ReaderPreferencesSheet extends StatefulWidget {
   final bool paragraphs, redLetters;
   final void Function(double, bool) onSize;
   final ValueChanged<bool> onParagraphs, onRedLetters;
+  final bool showFormatting;
+  final List<Widget> extraActions;
   const ReaderPreferencesSheet(
       {super.key,
       required this.fontSize,
@@ -12,7 +14,9 @@ class ReaderPreferencesSheet extends StatefulWidget {
       required this.redLetters,
       required this.onSize,
       required this.onParagraphs,
-      required this.onRedLetters});
+      required this.onRedLetters,
+      this.showFormatting = true,
+      this.extraActions = const []});
   @override
   State<ReaderPreferencesSheet> createState() => _ReaderPreferencesSheetState();
 }
@@ -76,26 +80,29 @@ class _ReaderPreferencesSheetState extends State<ReaderPreferencesSheet> {
                               fontSize: size,
                               height: 1.6)),
                       const SizedBox(height: 16),
-                      SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Paragraph reading'),
-                          subtitle: const Text(
-                              'Flowing text with verse numbers. Long-press and drag to select verses.'),
-                          value: paragraphs,
-                          onChanged: (value) {
-                            setState(() => paragraphs = value);
-                            widget.onParagraphs(value);
-                          }),
-                      SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Words of Jesus in red'),
-                          subtitle: const Text(
-                              'Only where this edition provides verified markers, currently KJV.'),
-                          value: red,
-                          onChanged: (value) {
-                            setState(() => red = value);
-                            widget.onRedLetters(value);
-                          }),
+                      if (widget.showFormatting)
+                        SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Paragraph reading'),
+                            subtitle: const Text(
+                                'Flowing text with verse numbers. Long-press and drag to select verses.'),
+                            value: paragraphs,
+                            onChanged: (value) {
+                              setState(() => paragraphs = value);
+                              widget.onParagraphs(value);
+                            }),
+                      if (widget.showFormatting)
+                        SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Words of Jesus in red'),
+                            subtitle: const Text(
+                                'Only where this edition provides verified markers, currently KJV.'),
+                            value: red,
+                            onChanged: (value) {
+                              setState(() => red = value);
+                              widget.onRedLetters(value);
+                            }),
+                      ...widget.extraActions,
                     ])))),
       ]));
 }

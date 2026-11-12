@@ -11,6 +11,7 @@ import 'data/licensed_bible.dart';
 import 'features/reader/licensed_reader_page.dart';
 import 'features/reader/scripture_preview.dart';
 import 'features/reader/reader_toolbar.dart';
+import 'features/reader/chapter_navigation.dart';
 import 'features/reader/reader_preferences_sheet.dart';
 import 'features/reader/passage_paragraph.dart';
 import 'data/user_database.dart';
@@ -1096,8 +1097,7 @@ class _SelahAppState extends State<SelahApp> {
           builder: (context, constraints) {
             scheduleFocusSync();
             final wide = constraints.maxWidth >= 840;
-            final readingFocus =
-                page == 1 && licensedEdition == null && !readerControlsVisible;
+            final readingFocus = page == 1 && !readerControlsVisible;
             final content = bible == null
                 ? Center(
                     child: loadError == null
@@ -1122,6 +1122,7 @@ class _SelahAppState extends State<SelahApp> {
                                 initialReference: chapterReference,
                                 repository: licensedRepository,
                                 preferSavedReference: false,
+                                initialControlsVisible: readerControlsVisible,
                                 onLocation: (reference) {
                                   final parts = reference.split('.');
                                   bookIndex = bible!.books.indexWhere(
@@ -1135,6 +1136,13 @@ class _SelahAppState extends State<SelahApp> {
                                 onTranslation: () =>
                                     manageTranslations(context),
                                 onSearch: () => unawaited(openSearch(context)),
+                                onControlsVisible: (value) {
+                                  if (mounted &&
+                                      readerControlsVisible != value) {
+                                    setState(
+                                        () => readerControlsVisible = value);
+                                  }
+                                },
                                 onReady: (value) {
                                   licensedReaderReady = value;
                                   if (mounted) scheduleFocusSync();
@@ -1214,7 +1222,7 @@ class _SelahAppState extends State<SelahApp> {
                               ),
                               NavigationRailDestination(
                                 icon: Icon(Icons.spa_outlined),
-                                label: Text('Time with\nGod',
+                                label: Text('Devotion',
                                     textAlign: TextAlign.center),
                               ),
                               NavigationRailDestination(
@@ -1247,7 +1255,7 @@ class _SelahAppState extends State<SelahApp> {
                         ),
                         NavigationDestination(
                           icon: Icon(Icons.spa_outlined),
-                          label: 'Time with God',
+                          label: 'Devotion',
                         ),
                         NavigationDestination(
                           icon: Icon(Icons.bookmarks_outlined),
@@ -2016,36 +2024,18 @@ class _SelahAppState extends State<SelahApp> {
 
   Widget readerDock(BuildContext context, BibleBook book) {
     final hasAudio = ChapterAudioController.available(bible!.id);
-    final navigation = Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      elevation: readerControlsVisible ? 3 : 0,
-      borderRadius: BorderRadius.circular(40),
-      clipBehavior: Clip.antiAlias,
-      child: Row(children: [
-        chapterArrow(context,
-            previous: true, enabled: bookIndex > 0 || chapterIndex > 0),
-        Expanded(
-            child: TextButton(
-          key: const ValueKey('passage-picker'),
-          style: TextButton.styleFrom(
-              minimumSize: const Size(0, 56),
-              foregroundColor: Theme.of(context).colorScheme.onSurface),
-          onPressed: () => pickPassage(context),
-          child: Text(
-              selectedPassage == null
-                  ? '${book.name} ${chapterIndex + 1}'
-                  : bible!.reference(selectedPassage!),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        )),
-        chapterArrow(context,
-            previous: false,
-            enabled: bookIndex < bible!.books.length - 1 ||
-                chapterIndex < book.chapters.length - 1),
-      ]),
-    );
+    final navigation = ChapterNavigation(
+        label: selectedPassage == null
+            ? '${book.name} ${chapterIndex + 1}'
+            : bible!.reference(selectedPassage!),
+        controlsVisible: readerControlsVisible,
+        onPrevious:
+            bookIndex > 0 || chapterIndex > 0 ? () => moveChapter(-1) : null,
+        onNext: bookIndex < bible!.books.length - 1 ||
+                chapterIndex < book.chapters.length - 1
+            ? () => moveChapter(1)
+            : null,
+        onPick: () => pickPassage(context));
     return ColoredBox(
         color: Theme.of(context).scaffoldBackgroundColor,
         child: Center(

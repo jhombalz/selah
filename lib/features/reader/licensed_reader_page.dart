@@ -12,6 +12,10 @@ import '../growth/growth_share.dart';
 import 'chapter_completion_card.dart';
 import 'passage_picker.dart';
 import 'passage_selection_layer.dart';
+import 'reader_toolbar.dart';
+import 'reader_preferences_sheet.dart';
+import 'chapter_navigation.dart';
+import 'reader_scroll_intent.dart';
 
 class LicensedReaderPage extends StatefulWidget {
   final LicensedEdition edition;
@@ -22,9 +26,11 @@ class LicensedReaderPage extends StatefulWidget {
   final LicensedBibleRepository? repository;
   final VoidCallback? onTranslation;
   final VoidCallback? onSearch;
+  final ValueChanged<bool>? onControlsVisible;
   final ValueChanged<String>? onLocation;
   final VoidCallback? onDataChanged;
   final bool preferSavedReference;
+  final bool initialControlsVisible;
   const LicensedReaderPage(
       {super.key,
       required this.edition,
@@ -35,9 +41,11 @@ class LicensedReaderPage extends StatefulWidget {
       this.repository,
       this.onTranslation,
       this.onSearch,
+      this.onControlsVisible,
       this.onLocation,
       this.onDataChanged,
-      this.preferSavedReference = true});
+      this.preferSavedReference = true,
+      this.initialControlsVisible = true});
   @override
   State<LicensedReaderPage> createState() => _LicensedReaderPageState();
 }
@@ -60,6 +68,54 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
   int book = 0, chapter = 0, generation = 0;
   double fontSize = 21;
   bool loading = true, writing = false;
+  late bool controlsVisible = widget.initialControlsVisible;
+  late bool revealAtTopOnly = !widget.initialControlsVisible;
+  final scrollIntent = ReaderScrollIntent();
+
+  void showControls(bool value) {
+    if (controlsVisible == value) return;
+    setState(() => controlsVisible = value);
+    widget.onControlsVisible?.call(value);
+  }
+
+  Future<void> preferences() => showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+          maxWidth: 560, maxHeight: MediaQuery.sizeOf(context).height * .9),
+      builder: (sheetContext) => ReaderPreferencesSheet(
+              fontSize: fontSize,
+              paragraphs: false,
+              redLetters: false,
+              showFormatting: false,
+              onParagraphs: (_) {},
+              onRedLetters: (_) {},
+              onSize: (value, persist) {
+                setState(() => fontSize = value);
+                if (persist) {
+                  unawaited(mutate(() =>
+                      widget.database.setPreferences({'fontSize': '$value'})));
+                }
+              },
+              extraActions: [
+                ListTile(
+                    leading: const Icon(Icons.refresh),
+                    title: const Text('Refresh chapter'),
+                    onTap: loading
+                        ? null
+                        : () {
+                            Navigator.pop(sheetContext);
+                            unawaited(load(refresh: true));
+                          }),
+                ListTile(
+                    leading: const Icon(Icons.delete_outline),
+                    title: const Text('Clear saved online chapters'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      unawaited(clearCache());
+                    }),
+              ]));
   String? error, selection;
   Timer? expiry;
   String get reference => '${template.books[book].id}.${chapter + 1}';
@@ -162,6 +218,8 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
   }
 
   void move(int direction) {
+    revealAtTopOnly = !controlsVisible;
+    scrollIntent.reset();
     if (loading || writing) return;
     var b = book, c = chapter + direction;
     if (c < 0) {
@@ -412,257 +470,263 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
     final complete =
         user.history.any((h) => h.reference == reference && h.completed);
     return Scaffold(
-        appBar: AppBar(
-            automaticallyImplyLeading: widget.onTranslation == null,
-            title: Text('Bible'),
-            actions: [
-              if (widget.onSearch != null)
-                IconButton(
-                    tooltip: 'Find a passage',
-                    onPressed: widget.onSearch,
-                    icon: const Icon(Icons.search)),
-              if (widget.onTranslation != null)
-                OutlinedButton(
-                    onPressed: widget.onTranslation,
-                    child: Text(widget.edition.abbreviation)),
-              IconButton(
-                  tooltip: 'Refresh chapter',
-                  onPressed: loading ? null : () => load(refresh: true),
-                  icon: const Icon(Icons.refresh)),
-              PopupMenuButton<String>(
-                  onSelected: (value) => value == 'clear' ? clearCache() : null,
-                  itemBuilder: (_) => [
-                        const PopupMenuItem(
-                            value: 'clear',
-                            child: Text('Clear saved online chapters'))
-                      ]),
-            ]),
-        body: Column(children: [
-          Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(children: [
+        appBar: controlsVisible
+            ? AppBar(
+                automaticallyImplyLeading: false,
+                titleSpacing: 16,
+                toolbarHeight: 72,
+                title: ReaderToolbar(
+                    chapter: label,
+                    abbreviation: widget.edition.abbreviation,
+                    translation: widget.edition.name,
+                    onSearch: widget.onSearch ?? pick,
+                    onBooks: pick,
+                    onTranslation: widget.onTranslation ?? () {},
+                    onTextSize: preferences,
+                    onLayout: preferences,
+                    hasAudio: false,
+                    playing: false,
+                    loading: false,
+                    audioLabel: '',
+                    onAudio: () {}))
+            : null,
+        body: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification.depth != 0 || selection != null) return false;
+              if (notification is OverscrollNotification &&
+                  notification.dragDetails != null &&
+                  notification.metrics.pixels <= 12 &&
+                  notification.overscroll < 0) {
+                revealAtTopOnly = false;
+                showControls(true);
+              }
+              if (notification is ScrollUpdateNotification &&
+                  notification.dragDetails != null) {
+                final show = scrollIntent.update(
+                    notification.scrollDelta ?? 0, notification.metrics.pixels,
+                    visible: controlsVisible);
+                if (show == true &&
+                    revealAtTopOnly &&
+                    notification.metrics.pixels > 12) {
+                  return false;
+                }
+                if (show == true) revealAtTopOnly = false;
+                if (show != null) showControls(show);
+              }
+              return false;
+            },
+            child: Stack(children: [
+              Column(children: [
                 Expanded(
-                    child: OutlinedButton.icon(
-                        onPressed: loading || writing ? null : pick,
-                        icon: const Icon(Icons.menu_book_outlined),
-                        label: Text(label,
-                            maxLines: 1, overflow: TextOverflow.ellipsis))),
-                IconButton(
-                    tooltip: 'Smaller text',
-                    onPressed: fontSize <= 16 ? null : () => changeFont(-1),
-                    icon: const Icon(Icons.text_decrease)),
-                IconButton(
-                    tooltip: 'Larger text',
-                    onPressed: fontSize >= 32 ? null : () => changeFont(1),
-                    icon: const Icon(Icons.text_increase)),
-              ])),
-          Expanded(
-              child: loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : error != null
-                      ? Center(
-                          child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(error!, textAlign: TextAlign.center),
-                                    const SizedBox(height: 16),
-                                    FilledButton(
-                                        onPressed: load,
-                                        child: const Text('Retry chapter')),
-                                    TextButton(
-                                        onPressed: widget.onTranslation ??
-                                            () => Navigator.pop(context),
-                                        child: const Text(
-                                            'Back to offline translations')),
-                                  ])))
-                      : data == null
-                          ? const SizedBox.shrink()
-                          : Align(
-                              alignment: Alignment.topCenter,
-                              child: ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 800),
-                                  child: PassageSelectionLayer(
-                                      key: ValueKey(reference),
-                                      scrollController: scroll,
-                                      references: [
-                                        for (final v in data.verses)
-                                          '$reference.${v.number}'
-                                      ],
-                                      anchors: anchors,
-                                      onChanged: (value) =>
-                                          setState(() => selection = value),
-                                      onFinished: actions,
-                                      child: ListView(
-                                          controller: scroll,
-                                          padding: const EdgeInsets.fromLTRB(
-                                              20, 16, 20, 28),
-                                          children: [
-                                            Text(label,
-                                                textAlign: TextAlign.center,
-                                                style: const TextStyle(
-                                                    fontFamily: 'SourceSerif4',
-                                                    fontSize: 30,
-                                                    fontWeight:
-                                                        FontWeight.bold)),
-                                            const SizedBox(height: 10),
-                                            Text(
-                                                data.cacheFailed
-                                                    ? 'Read online · Could not save this chapter'
-                                                    : data.refreshFailed
-                                                        ? 'Could not refresh · Showing saved chapter'
-                                                        : data.cached
-                                                            ? 'Saved chapter · Refresh required within ${(30 - repository.now().difference(data.fetchedAt).inDays).clamp(1, 30)} days'
-                                                            : 'Read online · Saved for offline access up to 30 days',
-                                                textAlign: TextAlign.center,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall),
-                                            const SizedBox(height: 12),
-                                            // Attribution is visible with every chapter, including cached copies.
-                                            Text(data.copyright,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall),
-                                            TextButton(
-                                                onPressed: () => launchUrl(
-                                                    Uri.parse(
-                                                        'https://api.bible'),
-                                                    mode: LaunchMode
-                                                        .externalApplication),
-                                                child: const Text(
-                                                    'Provided by API.Bible')),
-                                            for (final verse
-                                                in data.verses) ...[
-                                              for (final heading in verse
-                                                      .readingFormat
-                                                      ?.headings ??
-                                                  <String>[])
-                                                Padding(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        vertical: 16),
-                                                    child: Text(heading,
-                                                        style: TextStyle(
-                                                            fontFamily:
-                                                                'SourceSerif4',
-                                                            fontSize: fontSize,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .bold))),
-                                              Padding(
-                                                  key: anchors.putIfAbsent(
-                                                      '$reference.${verse.number}',
-                                                      GlobalKey.new),
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          bottom: 8),
-                                                  child: InkWell(
-                                                      key: ValueKey(
-                                                          'licensed-verse-$reference.${verse.number}'),
-                                                      onTap: writing
-                                                          ? null
-                                                          : () => actions(
-                                                              '$reference.${verse.number}'),
-                                                      child: Container(
-                                                          color: highlight(
-                                                              '$reference.${verse.number}'),
+                    child: loading
+                        ? const Center(child: CircularProgressIndicator())
+                        : error != null
+                            ? Center(
+                                child: Padding(
+                                    padding: const EdgeInsets.all(24),
+                                    child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(error!,
+                                              textAlign: TextAlign.center),
+                                          const SizedBox(height: 16),
+                                          FilledButton(
+                                              onPressed: load,
+                                              child:
+                                                  const Text('Retry chapter')),
+                                          TextButton(
+                                              onPressed: widget.onTranslation ??
+                                                  () => Navigator.pop(context),
+                                              child: const Text(
+                                                  'Back to offline translations')),
+                                        ])))
+                            : data == null
+                                ? const SizedBox.shrink()
+                                : Align(
+                                    alignment: Alignment.topCenter,
+                                    child: ConstrainedBox(
+                                        constraints:
+                                            const BoxConstraints(maxWidth: 800),
+                                        child: PassageSelectionLayer(
+                                            key: ValueKey(reference),
+                                            scrollController: scroll,
+                                            references: [
+                                              for (final v in data.verses)
+                                                '$reference.${v.number}'
+                                            ],
+                                            anchors: anchors,
+                                            onChanged: (value) => setState(
+                                                () => selection = value),
+                                            onFinished: actions,
+                                            child: ListView(
+                                                controller: scroll,
+                                                padding:
+                                                    const EdgeInsets.fromLTRB(
+                                                        20, 16, 20, 28),
+                                                children: [
+                                                  Text(label,
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: const TextStyle(
+                                                          fontFamily:
+                                                              'SourceSerif4',
+                                                          fontSize: 30,
+                                                          fontWeight:
+                                                              FontWeight.bold)),
+                                                  const SizedBox(height: 10),
+                                                  Text(
+                                                      data.cacheFailed
+                                                          ? 'Read online · Could not save this chapter'
+                                                          : data.refreshFailed
+                                                              ? 'Could not refresh · Showing saved chapter'
+                                                              : data.cached
+                                                                  ? 'Saved chapter · Refresh required within ${(30 - repository.now().difference(data.fetchedAt).inDays).clamp(1, 30)} days'
+                                                                  : 'Read online · Saved for offline access up to 30 days',
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodySmall),
+                                                  const SizedBox(height: 12),
+                                                  // Attribution is visible with every chapter, including cached copies.
+                                                  Text(data.copyright,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodySmall),
+                                                  TextButton(
+                                                      onPressed: () => launchUrl(
+                                                          Uri.parse(
+                                                              'https://api.bible'),
+                                                          mode: LaunchMode
+                                                              .externalApplication),
+                                                      child: const Text(
+                                                          'Provided by API.Bible')),
+                                                  for (final verse
+                                                      in data.verses) ...[
+                                                    for (final heading in verse
+                                                            .readingFormat
+                                                            ?.headings ??
+                                                        <String>[])
+                                                      Padding(
                                                           padding:
                                                               const EdgeInsets
                                                                   .symmetric(
-                                                                  vertical: 6),
-                                                          child: Text.rich(
-                                                              TextSpan(
-                                                                  children: [
-                                                                    TextSpan(
-                                                                        text:
-                                                                            '${verse.number}  ',
-                                                                        style: TextStyle(
-                                                                            fontSize:
-                                                                                12,
-                                                                            color:
-                                                                                Theme.of(context).colorScheme.primary)),
-                                                                    TextSpan(
-                                                                        text: verse
-                                                                            .text),
-                                                                    if (user
-                                                                        .notes
-                                                                        .keys
-                                                                        .any((r) => Bible.overlaps(
-                                                                            r,
-                                                                            '$reference.${verse.number}')))
-                                                                      const WidgetSpan(
-                                                                          child: Icon(
-                                                                              Icons.sticky_note_2_outlined,
-                                                                              size: 17)),
-                                                                    if (user
-                                                                        .bookmarks
-                                                                        .any((r) => Bible.overlaps(
-                                                                            r,
-                                                                            '$reference.${verse.number}')))
-                                                                      const WidgetSpan(
-                                                                          child: Icon(
-                                                                              Icons.bookmark,
-                                                                              size: 16)),
-                                                                  ]),
+                                                                  vertical: 16),
+                                                          child: Text(heading,
                                                               style: TextStyle(
                                                                   fontFamily:
                                                                       'SourceSerif4',
                                                                   fontSize:
                                                                       fontSize,
-                                                                  height:
-                                                                      1.7))))),
-                                            ],
-                                            ChapterCompletionCard(
-                                                completed: complete,
-                                                saving: writing,
-                                                chapter: label,
-                                                onToggle: () => mutate(() =>
-                                                    widget.database
-                                                        .setCompleted(reference,
-                                                            !complete))),
-                                            const SizedBox(height: 16),
-                                            const Text(
-                                                'Text reading only. Recorded audio is unavailable for these editions; TTS awaits publisher permission.',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(fontSize: 12)),
-                                          ]))))),
-          SafeArea(
-              top: false,
-              child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                            tooltip: 'Previous chapter',
-                            onPressed: loading ||
-                                    writing ||
-                                    (book == 0 && chapter == 0)
-                                ? null
-                                : () => move(-1),
-                            icon: const Icon(Icons.chevron_left)),
-                        Flexible(
-                            child: Text(
-                                '${widget.edition.abbreviation} · $label',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis)),
-                        IconButton(
-                            tooltip: 'Next chapter',
-                            onPressed: loading ||
-                                    writing ||
-                                    (book == template.books.length - 1 &&
-                                        chapter ==
-                                            template.books.last.chapters
-                                                    .length -
-                                                1)
-                                ? null
-                                : () => move(1),
-                            icon: const Icon(Icons.chevron_right)),
-                      ]))),
-        ]));
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold))),
+                                                    Padding(
+                                                        key: anchors.putIfAbsent(
+                                                            '$reference.${verse.number}',
+                                                            GlobalKey.new),
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                                bottom: 8),
+                                                        child: InkWell(
+                                                            key: ValueKey(
+                                                                'licensed-verse-$reference.${verse.number}'),
+                                                            onTap: writing
+                                                                ? null
+                                                                : () => actions(
+                                                                    '$reference.${verse.number}'),
+                                                            child: Container(
+                                                                color: highlight(
+                                                                    '$reference.${verse.number}'),
+                                                                padding: const EdgeInsets
+                                                                    .symmetric(
+                                                                    vertical:
+                                                                        6),
+                                                                child:
+                                                                    Text.rich(
+                                                                        TextSpan(
+                                                                            children: [
+                                                                              TextSpan(text: '${verse.number}  ', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary)),
+                                                                              TextSpan(text: verse.text),
+                                                                              if (user.notes.keys.any((r) => Bible.overlaps(r, '$reference.${verse.number}')))
+                                                                                const WidgetSpan(child: Icon(Icons.sticky_note_2_outlined, size: 17)),
+                                                                              if (user.bookmarks.any((r) => Bible.overlaps(r, '$reference.${verse.number}')))
+                                                                                const WidgetSpan(child: Icon(Icons.bookmark, size: 16)),
+                                                                            ]),
+                                                                        style: TextStyle(
+                                                                            fontFamily:
+                                                                                'SourceSerif4',
+                                                                            fontSize:
+                                                                                fontSize,
+                                                                            height:
+                                                                                1.7))))),
+                                                  ],
+                                                  ChapterCompletionCard(
+                                                      completed: complete,
+                                                      saving: writing,
+                                                      chapter: label,
+                                                      onToggle: () => mutate(
+                                                          () => widget.database
+                                                              .setCompleted(
+                                                                  reference,
+                                                                  !complete))),
+                                                  const SizedBox(height: 16),
+                                                  const Text(
+                                                      'Text reading only. Recorded audio is unavailable for these editions; TTS awaits publisher permission.',
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: TextStyle(
+                                                          fontSize: 12)),
+                                                ]))))),
+                if (MediaQuery.sizeOf(context).width < 840)
+                  ColoredBox(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      child: Center(
+                          child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 520),
+                              child: Padding(
+                                  padding: controlsVisible
+                                      ? const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8)
+                                      : const EdgeInsets.all(8),
+                                  child: ChapterNavigation(
+                                      label: label,
+                                      controlsVisible: controlsVisible,
+                                      onPrevious:
+                                          canPrevious ? () => move(-1) : null,
+                                      onNext: canNext ? () => move(1) : null,
+                                      onPick:
+                                          loading || writing ? null : pick))))),
+              ]),
+              if (MediaQuery.sizeOf(context).width >= 840) ...[
+                Positioned(
+                    left: 16,
+                    bottom: 16,
+                    child: Material(
+                        color:
+                            Theme.of(context).colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(18),
+                        child: ChapterNavigationArrow(
+                            previous: true,
+                            onPressed: canPrevious ? () => move(-1) : null))),
+                Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: Material(
+                        color:
+                            Theme.of(context).colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(18),
+                        child: ChapterNavigationArrow(
+                            previous: false,
+                            onPressed: canNext ? () => move(1) : null))),
+              ],
+            ])));
   }
+
+  bool get canPrevious => !loading && !writing && (book > 0 || chapter > 0);
+  bool get canNext =>
+      !loading &&
+      !writing &&
+      (book < template.books.length - 1 ||
+          chapter < template.books[book].chapters.length - 1);
 }

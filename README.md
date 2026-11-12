@@ -2,9 +2,15 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.6.2](https://github.com/jhombalz/selah/releases/download/v0.6.2/selah-v0.6.2-android.apk)
+[Download SELAH Android v0.6.3](https://github.com/jhombalz/selah/releases/download/v0.6.3/selah-v0.6.3-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.6.3 shortens the navigation label to Devotion and gives NIV/NLT the
+shared reader header, AA font settings, rounded mobile chapter dock and desktop
+edge arrows. Online-reader menus hide on deliberate scrolling and stay hidden
+across chapter changes until returning to the top. Refresh and cache controls
+are available inside AA. Existing data and licensed-content rules are preserved.
 
 Version 0.6.2 groups New Testament History into Jesus (Gospels) and Church (Acts),
 rotates 80 curated daily reflection passages, and adds Time with God to the main

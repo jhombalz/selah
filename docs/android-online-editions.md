@@ -2,7 +2,7 @@
 
 Open Bible translations on the Android release, then choose **Use NIV** or
 **Use NLT** under Online translations. The selected edition opens in the normal
-Bible tab, with Home, Bible, Search, Saved and Settings still available. The
+Bible tab, with Home, Bible, Devotion, Saved and Settings still available. The
 selection survives app restarts. Switching translations keeps the current chapter.
 Select a book/chapter, or use the previous and next arrows. Bookmarks,
 verse/range notes, highlights and chapter completion use the same Scripture
@@ -13,9 +13,16 @@ previews, verse sharing and My time with God sharing. Licensed previews use the
 same bounded chapter cache as the reader and include attribution. Missing text
 shows an unavailable/retry message; another edition is never substituted under
 an NIV/NLT label. Personal notes retain their original translation label.
-For NIV/NLT the Search tab offers book/chapter lookup, not an offline edition's
+For NIV/NLT the header's search control offers book/chapter lookup, not an offline edition's
 full-text results. Complete full-text search remains available for downloaded
 translations. Accounts, web access and NIV/NLT TTS are not part of this update.
+
+Since v0.6.3, NIV/NLT use the shared passage/search header, book picker,
+translation selector and AA reading preferences. AA also contains Refresh chapter
+and Clear saved online chapters. Unsupported paragraph/red-letter switches are
+omitted for these editions. The mobile reader uses the same rounded chapter dock
+as offline editions; desktop has the same edge arrows. Deliberate scrolling hides
+menus, and changing chapters preserves that state until scrolling back to the top.
 
 ## Network use and offline copies
 

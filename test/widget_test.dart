@@ -124,13 +124,13 @@ void main() {
         database: database,
         initialData: const UserData()));
     expect(find.text('Search'), findsNothing);
-    await tester.tap(find.text('Time with God'));
+    await tester.tap(find.text('Devotion'));
     await tester.pumpAndSettle();
     expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
         2);
     expect(find.byTooltip('Back'), findsNothing);
-    expect(find.text('Time with God'), findsOneWidget);
+    expect(find.text('Devotion'), findsOneWidget);
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
     expect(find.text('Continue Reading').hitTestable(), findsOneWidget);

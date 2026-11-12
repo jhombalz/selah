@@ -10,6 +10,8 @@ import 'package:selah/data/daily_verse.dart';
 import 'package:selah/data/user_backup.dart';
 import 'package:selah/data/user_database.dart';
 import 'package:selah/features/reader/licensed_reader_page.dart';
+import 'package:selah/features/reader/reader_toolbar.dart';
+import 'package:selah/features/reader/chapter_navigation.dart';
 import 'package:selah/main.dart';
 
 Map<String, dynamic> chapterData(String book, int chapter, {String? edition}) =>
@@ -127,7 +129,7 @@ void main() {
     expect(find.byTooltip('Back'), findsNothing);
     await tester.tap(find.byTooltip('Next chapter'));
     await settle();
-    expect(find.text('NLT · John 4'), findsOneWidget);
+    expect(find.text('John 4'), findsWidgets);
     await tester.tap(find.text('Saved').last);
     await settle();
     expect(find.text('John 3:1 · NLT'), findsOneWidget);
@@ -136,10 +138,84 @@ void main() {
     expect(requests.where((r) => r.endsWith('JHN.3')).length, 1);
     await tester.tap(find.text('Bible').last);
     await settle();
-    expect(find.text('NLT · John 4'), findsOneWidget);
+    expect(find.text('John 4'), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   }, skip: LicensedBibleAccess.key.isEmpty);
+  testWidgets(
+      'Online reader uses shared AA and chapter controls and preserves reading focus',
+      (tester) async {
+    final canon = (await tester.runAsync(Bible.load))!;
+    final repository = LicensedBibleRepository(db, apiKey: 'test-key',
+        client: MockClient((request) async {
+      final chapter = int.parse(request.url.pathSegments.last.split('.').last);
+      final data = chapterData('JHN', chapter);
+      data['content'] = [
+        {
+          'type': 'tag',
+          'name': 'para',
+          'attrs': {'style': 'p'},
+          'items': [
+            for (var verse = 1; verse <= 20; verse++)
+              {
+                'type': 'text',
+                'text':
+                    'A source sentence for reading and reflecting in this test passage. ',
+                'attrs': {'verseId': 'JHN.$chapter.$verse'},
+              }
+          ],
+        }
+      ];
+      return http.Response(jsonEncode({'data': data}), 200);
+    }));
+    addTearDown(repository.dispose);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+        home: LicensedReaderPage(
+            edition: licensedEditions.first,
+            canon: canon,
+            database: db,
+            repository: repository,
+            initialReference: 'JHN.3')));
+    Future<void> settle() async {
+      for (var i = 0; i < 12; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+    }
+
+    await settle();
+    expect(find.byType(ReaderToolbar), findsOneWidget);
+    expect(find.byType(ChapterNavigation), findsOneWidget);
+    expect(find.byTooltip('Smaller text'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('text-size')));
+    await tester.pumpAndSettle();
+    expect(find.text('Reading preferences'), findsOneWidget);
+    await tester.tap(find.byTooltip('Larger text'));
+    await settle();
+    expect((await tester.runAsync(db.load))!.preferences['fontSize'], '22.0');
+    await tester.tap(find.byTooltip('Close text size'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -350));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReaderToolbar), findsNothing);
+    await tester.tap(find.byTooltip('Next chapter'));
+    await settle();
+    expect(find.byType(ReaderToolbar), findsNothing);
+    expect(find.text('John 4'), findsWidgets);
+    await tester.drag(find.byType(ListView), const Offset(0, -250));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, 3000));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReaderToolbar), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   tearDown(() => db.close());
   final niv = licensedEditions.first;
 
