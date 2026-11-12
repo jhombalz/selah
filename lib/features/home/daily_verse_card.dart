@@ -2,16 +2,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/bible.dart';
 import '../../data/daily_verse.dart';
+import '../reader/scripture_preview.dart';
 
 class DailyVerseCard extends StatefulWidget {
   final Bible bible;
   final DailyVerseRepository repository;
   final ValueChanged<String> onOpen;
+  final Bible? selectedBible;
+  final Future<Bible> Function(String)? resolve;
   const DailyVerseCard(
       {super.key,
       required this.bible,
       required this.repository,
-      required this.onOpen});
+      required this.onOpen,
+      this.selectedBible,
+      this.resolve});
 
   @override
   State<DailyVerseCard> createState() => _DailyVerseCardState();
@@ -44,7 +49,8 @@ class _DailyVerseCardState extends State<DailyVerseCard>
   @override
   void didUpdateWidget(covariant DailyVerseCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.bible != widget.bible) {
+    if (oldWidget.bible != widget.bible ||
+        oldWidget.selectedBible?.id != widget.selectedBible?.id) {
       choice = null;
       refresh();
     }
@@ -85,9 +91,11 @@ class _DailyVerseCardState extends State<DailyVerseCard>
   Widget build(BuildContext context) {
     final reference =
         choice?.reference ?? dailyVerseReference(widget.bible, today);
-    final verse = widget.bible.verse(reference);
+    final displayed = widget.selectedBible ?? widget.bible;
+    final verse = widget.resolve == null ? displayed.verse(reference) : null;
     final parts = reference.split('.');
-    final actualReference = '${parts[0]}.${parts[1]}.${verse.number}';
+    final actualReference =
+        '${parts[0]}.${parts[1]}.${verse?.number ?? parts[2]}';
     return Card(
         child: Padding(
             padding: const EdgeInsets.all(24),
@@ -101,12 +109,20 @@ class _DailyVerseCardState extends State<DailyVerseCard>
               const SizedBox(height: 8),
               Text(MaterialLocalizations.of(context).formatMediumDate(today)),
               const SizedBox(height: 16),
-              Text(verse.text,
-                  style: const TextStyle(
-                      fontFamily: 'SourceSerif4', fontSize: 23, height: 1.6)),
+              if (widget.resolve != null)
+                ScripturePreview(
+                    reference: reference,
+                    translationId: displayed.id,
+                    resolve: widget.resolve!,
+                    style: const TextStyle(
+                        fontFamily: 'SourceSerif4', fontSize: 23, height: 1.6))
+              else
+                Text(verse!.text,
+                    style: const TextStyle(
+                        fontFamily: 'SourceSerif4', fontSize: 23, height: 1.6)),
               const SizedBox(height: 12),
               Text(
-                  '${widget.bible.reference(actualReference)} · ${widget.bible.abbreviation}',
+                  '${displayed.reference(actualReference)} · ${displayed.abbreviation}',
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
               TextButton.icon(

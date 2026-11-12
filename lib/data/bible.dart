@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'reading_format.dart';
 
 class BibleVerse {
@@ -31,14 +32,19 @@ class Bible {
       this.licenseText = ''});
 
   static Future<Bible> load() async {
-    return withReadingFormat(fromJson(
-        jsonDecode(await rootBundle.loadString('assets/bible/cebocb.json'))
-            as Map<String, dynamic>));
+    return withReadingFormat(
+        await decode(await rootBundle.loadString('assets/bible/cebocb.json')));
   }
+
+  static Future<Bible> decode(String source) => compute(_decodeBible, source);
 
   static Future<Bible> withReadingFormat(Bible bible) async {
     final entries = await ReadingFormat.load(bible.id);
     if (entries.isEmpty) return bible;
+    return compute(_formatBible, (bible, entries));
+  }
+
+  static Bible applyReadingFormat(Bible bible, Map<String, dynamic> entries) {
     return Bible([
       for (final book in bible.books)
         BibleBook(book.id, book.name, [
@@ -139,3 +145,8 @@ class Bible {
         matches.map((v) => v.text).join(' '));
   }
 }
+
+Bible _decodeBible(String source) =>
+    Bible.fromJson(jsonDecode(source) as Map<String, dynamic>);
+Bible _formatBible((Bible, Map<String, dynamic>) input) =>
+    Bible.applyReadingFormat(input.$1, input.$2);

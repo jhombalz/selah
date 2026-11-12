@@ -218,7 +218,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
                   if (LicensedBibleAccess.supported &&
                       widget.onReadOnline != null &&
                       (language == 'All' || language == 'English')) ...[
-                    Text('Online editions',
+                    Text('Online translations',
                         style: Theme.of(context).textTheme.titleMedium),
                     for (final edition in licensedEditions)
                       Card(
@@ -232,18 +232,21 @@ class _TranslationsPageState extends State<TranslationsPage> {
                                             .textTheme
                                             .titleLarge),
                                     const SizedBox(height: 8),
-                                    const Text(
-                                        'English · Read chapters online. Opened chapters can be saved for up to 30 days. No complete download or audio.'),
+                                    Text(
+                                        'English · ${active == edition.id ? 'Selected · ' : ''}Online with saved chapters for up to 30 days. No complete download or audio.'),
                                     const SizedBox(height: 12),
                                     FilledButton.icon(
-                                        onPressed: LicensedBibleAccess.available
+                                        onPressed: LicensedBibleAccess
+                                                    .available &&
+                                                active != edition.id
                                             ? () =>
                                                 widget.onReadOnline!(edition)
                                             : null,
                                         icon: const Icon(
                                             Icons.menu_book_outlined),
-                                        label: Text(
-                                            'Read ${edition.abbreviation}')),
+                                        label: Text(active == edition.id
+                                            ? 'Selected'
+                                            : 'Use ${edition.abbreviation}')),
                                     if (!LicensedBibleAccess.available)
                                       const Text(
                                           'Available in the configured Android release.'),

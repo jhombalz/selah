@@ -12,6 +12,7 @@ import 'reflection_voice_button.dart';
 class GrowthPage extends StatefulWidget {
   final UserDatabase database;
   final Bible bible;
+  final Future<Bible> Function(String)? resolve;
   final String currentReference;
   final void Function(GrowthEntry) onRead;
   const GrowthPage(
@@ -19,7 +20,8 @@ class GrowthPage extends StatefulWidget {
       required this.database,
       required this.bible,
       required this.currentReference,
-      required this.onRead});
+      required this.onRead,
+      this.resolve});
   @override
   State<GrowthPage> createState() => _GrowthPageState();
 }
@@ -62,6 +64,7 @@ class _GrowthPageState extends State<GrowthPage> {
         builder: (_) => GrowthEditor(
             database: widget.database,
             bible: widget.bible,
+            resolve: widget.resolve,
             entry: entry,
             onRead: widget.onRead)));
     if (mounted) await reload();
@@ -299,6 +302,7 @@ class _GrowthPageState extends State<GrowthPage> {
 class GrowthEditor extends StatefulWidget {
   final UserDatabase database;
   final Bible bible;
+  final Future<Bible> Function(String)? resolve;
   final GrowthEntry entry;
   final void Function(GrowthEntry) onRead;
   const GrowthEditor(
@@ -306,7 +310,8 @@ class GrowthEditor extends StatefulWidget {
       required this.database,
       required this.bible,
       required this.entry,
-      required this.onRead});
+      required this.onRead,
+      this.resolve});
   @override
   State<GrowthEditor> createState() => _GrowthEditorState();
 }
@@ -431,8 +436,8 @@ class _GrowthEditorState extends State<GrowthEditor>
                       icon: const Icon(Icons.ios_share),
                       onPressed: () async {
                         if (await save() && context.mounted) {
-                          await previewGrowthShare(
-                              context, widget.bible, entry);
+                          await previewGrowthShare(context, widget.bible, entry,
+                              resolve: widget.resolve);
                         }
                       }),
                 ]),

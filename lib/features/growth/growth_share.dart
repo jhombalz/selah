@@ -5,7 +5,21 @@ import '../../data/bible.dart';
 import '../../data/growth_entry.dart';
 
 Future<void> previewGrowthShare(
-    BuildContext context, Bible bible, GrowthEntry entry) async {
+    BuildContext context, Bible bible, GrowthEntry entry,
+    {Future<Bible> Function(String)? resolve}) async {
+  if (resolve != null && entry.reference != null) {
+    try {
+      bible = await resolve(entry.reference!);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'The selected translation could not be loaded. Connect and try sharing again.')));
+      }
+      return;
+    }
+    if (!context.mounted) return;
+  }
   bool scripture = entry.reference != null,
       reflection = false,
       prayer = false,

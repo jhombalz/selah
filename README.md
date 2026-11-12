@@ -2,12 +2,18 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.6.0](https://github.com/jhombalz/selah/releases/download/v0.6.0/selah-v0.6.0-android.apk)
+[Download SELAH Android v0.6.1](https://github.com/jhombalz/selah/releases/download/v0.6.1/selah-v0.6.1-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
 
+Version 0.6.1 makes NIV/NLT selectable translations in the Bible tab and uses the
+chosen edition for daily verses, Saved previews, sharing and reflection sessions.
+The Android audio notification icon is retained in release builds, fixing a
+missing-icon crash when WEB/BSB starts playback. Bible parsing and source
+formatting run off the UI thread to reduce startup stalls.
+
 Version 0.6.0 adds Android-only NIV and NLT chapter reading through API.Bible.
-Open Bible translations and choose Read NIV or Read NLT. Opened chapters are
+Open Bible translations and choose Use NIV or Use NLT. Opened chapters are
 cached for up to 30 days, with a limit of 60 recent chapters; this is not a full
 offline download. Personal notes, highlights and bookmarks use shared Scripture
 references. NIV/NLT audio and TTS remain disabled pending permission.

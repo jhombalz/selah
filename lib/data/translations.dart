@@ -223,8 +223,7 @@ Future<Bible?> loadInstalledBible(UserDatabase database, String id) async {
     throw const FormatException(
         'The saved translation failed its integrity check. Remove it and download again.');
   }
-  final bible =
-      Bible.fromJson(jsonDecode(stored.content) as Map<String, dynamic>);
+  final bible = await Bible.decode(stored.content);
   if (bible.id != id) {
     throw const FormatException('Translation identifier mismatch.');
   }

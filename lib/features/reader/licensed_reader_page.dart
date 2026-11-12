@@ -7,6 +7,8 @@ import '../../data/licensed_bible.dart';
 import '../../data/scripture_range.dart';
 import '../../data/user_database.dart';
 import '../common/selah_dialog.dart';
+import '../../data/growth_entry.dart';
+import '../growth/growth_share.dart';
 import 'chapter_completion_card.dart';
 import 'passage_picker.dart';
 import 'passage_selection_layer.dart';
@@ -18,6 +20,10 @@ class LicensedReaderPage extends StatefulWidget {
   final String initialReference;
   final ValueChanged<bool>? onReady;
   final LicensedBibleRepository? repository;
+  final VoidCallback? onTranslation;
+  final ValueChanged<String>? onLocation;
+  final VoidCallback? onDataChanged;
+  final bool preferSavedReference;
   const LicensedReaderPage(
       {super.key,
       required this.edition,
@@ -25,7 +31,11 @@ class LicensedReaderPage extends StatefulWidget {
       required this.database,
       this.initialReference = 'GEN.1',
       this.onReady,
-      this.repository});
+      this.repository,
+      this.onTranslation,
+      this.onLocation,
+      this.onDataChanged,
+      this.preferSavedReference = true});
   @override
   State<LicensedReaderPage> createState() => _LicensedReaderPageState();
 }
@@ -68,8 +78,11 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
       user = data;
       fontSize = (double.tryParse(data.preferences['fontSize'] ?? '') ?? 21)
           .clamp(16, 32);
-      final parts =
-          (data.preferences[preference] ?? widget.initialReference).split('.');
+      final parts = ((widget.preferSavedReference
+                  ? data.preferences[preference]
+                  : null) ??
+              widget.initialReference)
+          .split('.');
       final index = template.books.indexWhere((b) => b.id == parts.first);
       final number = parts.length == 2 ? int.tryParse(parts[1]) : null;
       if (index >= 0 &&
@@ -127,6 +140,8 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
         user = data;
       });
       widget.onReady?.call(true);
+      widget.onLocation?.call(reference);
+      widget.onDataChanged?.call();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && scroll.hasClients) scroll.jumpTo(0);
       });
@@ -188,6 +203,7 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
       await action();
       final data = await widget.database.load();
       if (mounted) setState(() => user = data);
+      widget.onDataChanged?.call();
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -234,6 +250,7 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
                               sourceTranslation: widget.edition.id);
                           final data = await widget.database.load();
                           if (mounted) setState(() => user = data);
+                          widget.onDataChanged?.call();
                           if (context.mounted) Navigator.pop(context);
                         } catch (_) {
                           if (context.mounted) {
@@ -283,6 +300,10 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
                       leading: const Icon(Icons.edit_note),
                       title: const Text('Write a note'),
                       onTap: () => Navigator.pop(context, 'note')),
+                  ListTile(
+                      leading: const Icon(Icons.ios_share),
+                      title: const Text('Share passage'),
+                      onTap: () => Navigator.pop(context, 'share')),
                   Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Wrap(spacing: 10, children: [
@@ -310,6 +331,22 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
       await mutate(() => widget.database.setBookmark(ref, !bookmarked));
     } else if (result == 'note') {
       await note(ref);
+    } else if (result == 'share' &&
+        content != null &&
+        content!.fresh(repository.now())) {
+      final entry = GrowthEntry.create(
+          kind: 'session',
+          title: 'Scripture',
+          translation: widget.edition.id,
+          reference: ref);
+      entry.reflection = user.notes.entries
+          .where((e) => Bible.overlaps(ref, e.key))
+          .map((e) => e.value)
+          .join('\n\n');
+      await previewGrowthShare(
+          context,
+          licensedBibleMetadata(widget.canon, widget.edition, content: content),
+          entry);
     } else if (result != null) {
       final updated = recolorPassage(
           user.highlights, ref, result == 'clear' ? null : int.parse(result));
@@ -373,19 +410,26 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
     final complete =
         user.history.any((h) => h.reference == reference && h.completed);
     return Scaffold(
-        appBar: AppBar(title: Text(widget.edition.abbreviation), actions: [
-          IconButton(
-              tooltip: 'Refresh chapter',
-              onPressed: loading ? null : () => load(refresh: true),
-              icon: const Icon(Icons.refresh)),
-          PopupMenuButton<String>(
-              onSelected: (value) => value == 'clear' ? clearCache() : null,
-              itemBuilder: (_) => [
-                    const PopupMenuItem(
-                        value: 'clear',
-                        child: Text('Clear saved online chapters'))
-                  ]),
-        ]),
+        appBar: AppBar(
+            automaticallyImplyLeading: widget.onTranslation == null,
+            title: Text('Bible'),
+            actions: [
+              if (widget.onTranslation != null)
+                OutlinedButton(
+                    onPressed: widget.onTranslation,
+                    child: Text(widget.edition.abbreviation)),
+              IconButton(
+                  tooltip: 'Refresh chapter',
+                  onPressed: loading ? null : () => load(refresh: true),
+                  icon: const Icon(Icons.refresh)),
+              PopupMenuButton<String>(
+                  onSelected: (value) => value == 'clear' ? clearCache() : null,
+                  itemBuilder: (_) => [
+                        const PopupMenuItem(
+                            value: 'clear',
+                            child: Text('Clear saved online chapters'))
+                      ]),
+            ]),
         body: Column(children: [
           Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -421,7 +465,8 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
                                         onPressed: load,
                                         child: const Text('Retry chapter')),
                                     TextButton(
-                                        onPressed: () => Navigator.pop(context),
+                                        onPressed: widget.onTranslation ??
+                                            () => Navigator.pop(context),
                                         child: const Text(
                                             'Back to offline translations')),
                                   ])))

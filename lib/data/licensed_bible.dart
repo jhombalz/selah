@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'bible.dart';
+import 'book_names.dart';
 import 'reading_format.dart';
 import 'user_database.dart';
 
@@ -18,6 +19,24 @@ const licensedEditions = [
   LicensedEdition(
       'nlt', 'd6e14a625393b4da-01', 'New Living Translation', 'NLT'),
 ];
+
+Bible licensedBibleMetadata(Bible canon, LicensedEdition edition,
+        {LicensedChapter? content}) =>
+    Bible([
+      for (var b = 0; b < canon.books.length; b++)
+        BibleBook(canon.books[b].id, englishBookNames[b], [
+          for (var c = 0; c < canon.books[b].chapters.length; c++)
+            content?.book == canon.books[b].id && content?.chapter == c + 1
+                ? content!.verses
+                : const <BibleVerse>[],
+        ]),
+    ], edition.name,
+        id: edition.id,
+        abbreviation: edition.abbreviation,
+        language: 'English',
+        licenseText: content == null
+            ? ''
+            : '${content.copyright}\nProvided by API.Bible');
 
 class LicensedBibleAccess {
   static bool get supported =>

@@ -23,6 +23,7 @@ void main() {
           'paragraphs': 'true',
           'redLetters': 'false',
           'licensedLast_niv': 'JHN.3',
+          'readerTranslation': 'nlt',
           'fontSize': '28',
           'translation': 'asv',
           'lastChapter': 'GEN.1',

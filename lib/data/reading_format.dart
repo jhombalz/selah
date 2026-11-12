@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 class ScriptureSegment {
   final String text;
@@ -27,9 +28,8 @@ class ReadingFormat {
   static Future<Map<String, dynamic>> load(String id) =>
       _assets.putIfAbsent(id, () async {
         if (!const {'cebocb', 'bsb', 'kjv'}.contains(id)) return {};
-        final json = jsonDecode(
-                await rootBundle.loadString('assets/bible/formatting/$id.json'))
-            as Map<String, dynamic>;
+        final json = await compute(_decodeReadingFormat,
+            await rootBundle.loadString('assets/bible/formatting/$id.json'));
         if (json['version'] != 1 || json['translation'] != id) {
           throw const FormatException('Unexpected reading format edition.');
         }
@@ -139,3 +139,6 @@ class ReadingFormat {
     return result;
   }
 }
+
+Map<String, dynamic> _decodeReadingFormat(String source) =>
+    jsonDecode(source) as Map<String, dynamic>;

@@ -6,9 +6,11 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:selah/data/bible.dart';
 import 'package:selah/data/licensed_bible.dart';
+import 'package:selah/data/daily_verse.dart';
 import 'package:selah/data/user_backup.dart';
 import 'package:selah/data/user_database.dart';
 import 'package:selah/features/reader/licensed_reader_page.dart';
+import 'package:selah/main.dart';
 
 Map<String, dynamic> chapterData(String book, int chapter, {String? edition}) =>
     {
@@ -63,6 +65,71 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late UserDatabase db;
   setUp(() => db = UserDatabase(NativeDatabase.memory()));
+  testWidgets(
+      'Selected NLT stays in Bible tab and supplies Home and Saved wording',
+      (tester) async {
+    final canon = (await tester.runAsync(Bible.load))!;
+    final nlt = licensedEditions.last;
+    final requests = <String>[];
+    final repository = LicensedBibleRepository(db, apiKey: 'test-key',
+        client: MockClient((request) async {
+      final ref = request.url.pathSegments.last.split('.');
+      requests.add(request.url.path);
+      return http.Response(
+          jsonEncode({
+            'data': chapterData(ref[0], int.parse(ref[1]), edition: nlt.apiId)
+          }),
+          200);
+    }));
+    addTearDown(repository.dispose);
+    await tester.runAsync(() async {
+      await db
+          .setPreferences({'readerTranslation': 'nlt', 'lastChapter': 'JHN.3'});
+      await db.setBookmark('JHN.3.1', true);
+      await db.cacheDailyVerse(dailyVerseDay(DateTime.now()), 'JHN.3.1', true);
+    });
+    final data = (await tester.runAsync(db.load))!;
+    await tester.pumpWidget(SelahApp(
+        initialBible: canon,
+        database: db,
+        initialData: data,
+        licensedRepository: repository));
+    Future<void> settle() async {
+      for (var i = 0; i < 15; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump();
+      }
+    }
+
+    await settle();
+    expect(find.text('New Living Translation · English'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('VERSE OF THE DAY'), 300,
+        scrollable: find.byType(Scrollable).first);
+    await settle();
+    expect(find.textContaining('First test sentence.'), findsOneWidget);
+    expect(find.textContaining('· NLT'), findsWidgets);
+    await tester.tap(find.text('Bible').last);
+    await settle();
+    expect(find.text('NLT'), findsOneWidget);
+    expect(find.textContaining('First test sentence.'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byTooltip('Back'), findsNothing);
+    await tester.tap(find.byTooltip('Next chapter'));
+    await settle();
+    expect(find.text('NLT · John 4'), findsOneWidget);
+    await tester.tap(find.text('Saved').last);
+    await settle();
+    expect(find.text('John 3:1 · NLT'), findsOneWidget);
+    expect(find.textContaining('First test sentence.'), findsOneWidget);
+    expect(find.textContaining('Sa sinugdan'), findsNothing);
+    expect(requests.where((r) => r.endsWith('JHN.3')).length, 1);
+    await tester.tap(find.text('Bible').last);
+    await settle();
+    expect(find.text('NLT · John 4'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, skip: LicensedBibleAccess.key.isEmpty);
   tearDown(() => db.close());
   final niv = licensedEditions.first;
 

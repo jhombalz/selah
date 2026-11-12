@@ -136,6 +136,7 @@ class UserBackup {
         case 'licensedLast_nlt':
           _reference(value, canon, chapterOnly: true);
         case 'translation':
+        case 'readerTranslation':
           _translation(value);
         default:
           throw const FormatException(
