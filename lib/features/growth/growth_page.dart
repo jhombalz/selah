@@ -12,6 +12,7 @@ import 'reflection_voice_button.dart';
 class GrowthPage extends StatefulWidget {
   final UserDatabase database;
   final Bible bible;
+  final bool embedded;
   final Future<Bible> Function(String)? resolve;
   final String currentReference;
   final void Function(GrowthEntry) onRead;
@@ -21,6 +22,7 @@ class GrowthPage extends StatefulWidget {
       required this.bible,
       required this.currentReference,
       required this.onRead,
+      this.embedded = false,
       this.resolve});
   @override
   State<GrowthPage> createState() => _GrowthPageState();
@@ -175,7 +177,9 @@ class _GrowthPageState extends State<GrowthPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(title: const Text('My time with God')),
+      appBar: widget.embedded
+          ? null
+          : AppBar(title: const Text('My time with God')),
       body: Center(
           child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 760),

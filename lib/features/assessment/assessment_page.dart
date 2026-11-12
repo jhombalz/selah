@@ -130,7 +130,7 @@ class _AssessmentPageState extends State<AssessmentPage>
               content: SingleChildScrollView(
                   child: Text(
                       'Level $level · ${assessmentNames[level - 1]}\n20 questions · ${assessmentMinutes[level - 1]} minutes\n\n'
-                      'Once you start, the timer keeps running when you leave this screen, switch apps, or close SELAH. Your answers are saved as you go. Time expiry automatically submits your saved answers; unanswered questions count as incorrect.\n\n'
+                      'Once you start, the timer keeps running when you leave this screen, switch apps, or close SELAH. Each answer is saved and advances to the next question. Selecting the final answer automatically submits the assessment. Time expiry automatically submits your saved answers; unanswered questions count as incorrect.\n\n'
                       'You need 80% (16/20) to pass. Correct answers will not be shown. A retake becomes available 24 hours after submission.\n\nStart only when you are ready.')),
               actions: [
                 TextButton(
@@ -316,8 +316,7 @@ class _AssessmentPageState extends State<AssessmentPage>
                     'Time remaining · ${duration(a.deadline.difference(clock.now()))}',
                     style: Theme.of(context).textTheme.titleLarge),
                 const Text('The timer cannot be paused.'),
-                Text(
-                    '${a.answers.length}/20 answered · ${a.flagged.length} flagged'),
+                Text('${a.answers.length}/20 answers saved'),
                 const SizedBox(height: 14),
                 ClipRRect(
                     borderRadius: BorderRadius.circular(8),
@@ -351,7 +350,8 @@ class _AssessmentPageState extends State<AssessmentPage>
                         : null),
                 onPressed: busy
                     ? null
-                    : () => run(() => store.answer(a.id, questionId, choice)),
+                    : () => run(
+                        () => store.answerAndAdvance(a.id, questionId, choice)),
                 child: Row(children: [
                   Icon(a.answers[questionId] == choice
                       ? Icons.radio_button_checked
@@ -359,61 +359,11 @@ class _AssessmentPageState extends State<AssessmentPage>
                   const SizedBox(width: 12),
                   Expanded(child: Text(q.choices[choice]))
                 ]))),
-      TextButton.icon(
-          onPressed: busy
-              ? null
-              : () => run(() => store.answer(a.id, questionId, null,
-                  flag: !a.flagged.contains(questionId))),
-          icon: Icon(a.flagged.contains(questionId)
-              ? Icons.flag
-              : Icons.outlined_flag),
-          label: const Text('Flag for review')),
       const SizedBox(height: 12),
-      Wrap(spacing: 6, runSpacing: 6, children: [
-        for (var index = 0; index < 20; index++)
-          SizedBox(
-              width: 48,
-              height: 48,
-              child: Tooltip(
-                  message:
-                      'Question ${index + 1}${a.flagged.contains(a.order[index]) ? ', flagged' : ''}${a.answers.containsKey(a.order[index]) ? ', answered' : ', unanswered'}',
-                  child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          backgroundColor: index == a.current
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : null),
-                      onPressed: busy
-                          ? null
-                          : () => run(() => store.answer(a.id, questionId, null,
-                              current: index)),
-                      child: Text(
-                          '${index + 1}${a.flagged.contains(a.order[index]) ? '*' : a.answers.containsKey(a.order[index]) ? '•' : ''}'))))
-      ]),
-      const SizedBox(height: 20),
-      Row(children: [
-        Expanded(
-            child: OutlinedButton(
-                onPressed: busy || a.current == 0
-                    ? null
-                    : () => run(() => store.answer(a.id, questionId, null,
-                        current: a.current - 1)),
-                child: const Text('Previous'))),
-        const SizedBox(width: 12),
-        Expanded(
-            child: FilledButton(
-                onPressed: busy
-                    ? null
-                    : a.current == 19
-                        ? () => submit(a)
-                        : () => run(() => store.answer(a.id, questionId, null,
-                            current: a.current + 1)),
-                child: Text(a.current == 19 ? 'Review & submit' : 'Next')))
-      ]),
-      const SizedBox(height: 12),
-      TextButton(
-          onPressed: busy ? null : () => submit(a),
-          child: const Text('Submit assessment')),
+      const Text(
+          'Tap an answer to save and continue. Your final answer submits the assessment.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12)),
     ]);
   }
 

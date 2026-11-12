@@ -49,7 +49,9 @@ void main() {
     final current = find.byKey(const ValueKey('pick-book-JHN'));
     expect(current.hitTestable(), findsOneWidget);
     expect(tester.widget<ListTile>(current).selected, isTrue);
-    expect(find.text('Gospels'), findsOneWidget);
+    expect(find.text('History of Jesus (Gospels)'), findsOneWidget);
+    expect(find.text('History of the Church (Acts)'), findsOneWidget);
+    expect(find.text('History'), findsOneWidget);
     await tester.tap(current);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('pick-chapter-16')));

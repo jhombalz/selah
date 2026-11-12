@@ -71,15 +71,21 @@ void main() {
     final canon = (await tester.runAsync(Bible.load))!;
     final nlt = licensedEditions.last;
     final requests = <String>[];
+    final daily = dailyVerseReference(canon, DateTime.now()).split('.');
     final repository = LicensedBibleRepository(db, apiKey: 'test-key',
         client: MockClient((request) async {
       final ref = request.url.pathSegments.last.split('.');
       requests.add(request.url.path);
-      return http.Response(
-          jsonEncode({
-            'data': chapterData(ref[0], int.parse(ref[1]), edition: nlt.apiId)
-          }),
-          200);
+      final data = chapterData(ref[0], int.parse(ref[1]), edition: nlt.apiId);
+      final number = int.parse(daily[2].split('-').first);
+      if (ref[0] == daily[0] && ref[1] == daily[1] && number > 2) {
+        ((data['content'] as List).last['items'] as List).add({
+          'type': 'text',
+          'text': 'Daily selected wording.',
+          'attrs': {'verseId': '${ref[0]}.${ref[1]}.$number'},
+        });
+      }
+      return http.Response(jsonEncode({'data': data}), 200);
     }));
     addTearDown(repository.dispose);
     await tester.runAsync(() async {
@@ -107,7 +113,11 @@ void main() {
     await tester.scrollUntilVisible(find.text('VERSE OF THE DAY'), 300,
         scrollable: find.byType(Scrollable).first);
     await settle();
-    expect(find.textContaining('First test sentence.'), findsOneWidget);
+    expect(
+        find.textContaining(int.parse(daily[2].split('-').first) > 2
+            ? 'Daily selected wording.'
+            : 'First test sentence.'),
+        findsOneWidget);
     expect(find.textContaining('· NLT'), findsWidgets);
     await tester.tap(find.text('Bible').last);
     await settle();

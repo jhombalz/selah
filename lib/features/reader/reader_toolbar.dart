@@ -45,6 +45,7 @@ class ReaderToolbar extends StatelessWidget {
                                 color: colors.surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(30),
                                 child: InkWell(
+                                    key: const ValueKey('reader-search'),
                                     borderRadius: BorderRadius.circular(30),
                                     onTap: onSearch,
                                     child: Padding(

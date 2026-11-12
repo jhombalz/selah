@@ -112,7 +112,16 @@ class _PassagePickerState extends State<PassagePicker> {
       controller: booksScroll,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
       child: Column(children: [
-        for (final group in groups)
+        for (final group in groups) ...[
+          if (group.section != null &&
+              (groups.indexOf(group) == 0 ||
+                  groups[groups.indexOf(group) - 1].section != group.section))
+            Padding(
+                padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+                child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(group.section!,
+                        style: Theme.of(context).textTheme.titleMedium))),
           Card(
               margin: const EdgeInsets.only(bottom: 12),
               elevation: 0,
@@ -190,7 +199,8 @@ class _PassagePickerState extends State<PassagePicker> {
                         ),
                       ),
                 ],
-              ))
+              )),
+        ],
       ]),
     );
   }

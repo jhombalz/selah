@@ -181,6 +181,25 @@ class AssessmentStore {
         a.submittedAt = clock().toUtc();
         await _write(a);
       });
+
+  /// Persist choice and progression together. Double taps for an old question
+  /// cannot answer the next one, and the final selection submits atomically.
+  Future<void> answerAndAdvance(String id, int question, int choice) =>
+      database.transaction(() async {
+        final a = (await load()).firstWhere((a) => a.id == id);
+        if (a.submitted || a.order[a.current] != question) return;
+        if (choice < 0 || choice > 3) throw StateError('Invalid choice.');
+        a.answers[question] = choice;
+        a.flagged.remove(question);
+        final next = List.generate(a.order.length, (i) => i)
+            .where((i) => !a.answers.containsKey(a.order[i]));
+        if (next.isEmpty) {
+          a.submittedAt = clock().toUtc();
+        } else {
+          a.current = next.first;
+        }
+        await _write(a);
+      });
 }
 
 /// Uses elapsed time as well as wall time so changing the clock backwards while

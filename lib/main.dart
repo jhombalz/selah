@@ -242,19 +242,38 @@ class _SelahAppState extends State<SelahApp> {
         targetVerse: '${parts[0]}.${parts[1]}.${firstVerse.number}');
   }
 
-  void openGrowthPage() {
-    if (bible == null) return;
-    final first = bible!.books[bookIndex].chapters[chapterIndex].first;
-    final last = bible!.books[bookIndex].chapters[chapterIndex].last;
-    final reference =
-        '${bible!.books[bookIndex].id}.${chapterIndex + 1}.${first.number.split('-').first}-${last.number.split('-').last}';
-    Navigator.of(navigatorKey.currentContext!).push<void>(MaterialPageRoute(
-        builder: (_) => GrowthPage(
-            database: database,
-            bible: selectedBible,
-            resolve: licensedEdition == null ? null : resolveScripture,
-            currentReference: reference,
-            onRead: readGrowthPassage)));
+  String get currentGrowthReference {
+    final verses = bible!.books[bookIndex].chapters[chapterIndex];
+    return '$chapterReference.${verses.first.number.split('-').first}-${verses.last.number.split('-').last}';
+  }
+
+  void openGrowthPage() => selectPage(2);
+
+  Future<void> openSearch(BuildContext context) async {
+    if (licensedEdition != null) {
+      await pickPassage(context);
+      return;
+    }
+    await chapterAudio.stop();
+    if (!context.mounted) return;
+    await Navigator.of(context).push<void>(MaterialPageRoute(
+        builder: (searchContext) => Scaffold(
+            appBar: AppBar(title: const Text('Search the Bible')),
+            body: SearchPage(
+                search: searchEngine ??= BibleSearch(bible!),
+                initialQuery: searchQuery,
+                initialBook: searchBook,
+                initialPhrase: searchPhrase,
+                onOptionsChanged: (query, book, phrase) {
+                  searchQuery = query;
+                  searchBook = book;
+                  searchPhrase = phrase;
+                },
+                onOpen: (hit) {
+                  Navigator.of(searchContext).pop();
+                  openChapter(hit.bookIndex, hit.chapterIndex,
+                      targetVerse: hit.key);
+                }))));
   }
 
   Future<void> continueGrowthSession() async {
@@ -720,6 +739,11 @@ class _SelahAppState extends State<SelahApp> {
   }
 
   void selectPage(int value) {
+    if (value == 0 && page == 0 && homeScroll.hasClients) {
+      unawaited(homeScroll.animateTo(0,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut));
+      return;
+    }
     if (value != 1) unawaited(chapterAudio.stop());
     if (value == 1 && licensedEdition != null) {
       setState(() => page = 1);
@@ -1110,47 +1134,21 @@ class _SelahAppState extends State<SelahApp> {
                                     unawaited(refreshReadingData()),
                                 onTranslation: () =>
                                     manageTranslations(context),
+                                onSearch: () => unawaited(openSearch(context)),
                                 onReady: (value) {
                                   licensedReaderReady = value;
                                   if (mounted) scheduleFocusSync();
                                 })
                         : page == 2
-                            ? licensedEdition != null
-                                ? centered(Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                        Text(
-                                            '${selectedBible.abbreviation} passage lookup',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleLarge),
-                                        const Padding(
-                                            padding: EdgeInsets.all(24),
-                                            child: Text(
-                                                'Choose a book and chapter to read. Full-text search is available for downloaded translations.')),
-                                        FilledButton.icon(
-                                            icon: const Icon(
-                                                Icons.menu_book_outlined),
-                                            label:
-                                                const Text('Choose a passage'),
-                                            onPressed: () =>
-                                                pickPassage(context)),
-                                      ]))
-                                : SearchPage(
-                                    search: searchEngine ??=
-                                        BibleSearch(bible!),
-                                    initialQuery: searchQuery,
-                                    initialBook: searchBook,
-                                    initialPhrase: searchPhrase,
-                                    onOptionsChanged: (query, book, phrase) {
-                                      searchQuery = query;
-                                      searchBook = book;
-                                      searchPhrase = phrase;
-                                    },
-                                    onOpen: (hit) => openChapter(
-                                        hit.bookIndex, hit.chapterIndex,
-                                        targetVerse: hit.key),
-                                  )
+                            ? GrowthPage(
+                                database: database,
+                                bible: selectedBible,
+                                resolve: licensedEdition == null
+                                    ? null
+                                    : resolveScripture,
+                                currentReference: currentGrowthReference,
+                                embedded: true,
+                                onRead: readGrowthPassage)
                             : page == 3
                                 ? library(context)
                                 : settings(context);
@@ -1215,8 +1213,9 @@ class _SelahAppState extends State<SelahApp> {
                                 label: Text('Bible'),
                               ),
                               NavigationRailDestination(
-                                icon: Icon(Icons.search),
-                                label: Text('Search'),
+                                icon: Icon(Icons.spa_outlined),
+                                label: Text('Time with\nGod',
+                                    textAlign: TextAlign.center),
                               ),
                               NavigationRailDestination(
                                 icon: Icon(Icons.bookmarks_outlined),
@@ -1247,8 +1246,8 @@ class _SelahAppState extends State<SelahApp> {
                           label: 'Bible',
                         ),
                         NavigationDestination(
-                          icon: Icon(Icons.search),
-                          label: 'Search',
+                          icon: Icon(Icons.spa_outlined),
+                          label: 'Time with God',
                         ),
                         NavigationDestination(
                           icon: Icon(Icons.bookmarks_outlined),
@@ -1353,220 +1352,234 @@ class _SelahAppState extends State<SelahApp> {
 
   Widget home(BuildContext context) {
     final completed = history.where((entry) => entry.completed).length;
-    return centered(ListView(
+    return centered(CustomScrollView(
         key: const PageStorageKey('home-scroll'),
         controller: homeScroll,
         primary: false,
-        padding: const EdgeInsets.all(28),
-        children: [
-          const SizedBox(height: 16),
-          Text('PAUSE. REFLECT. GROW.',
-              style: TextStyle(
-                  letterSpacing: 3,
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.primary)),
-          const SizedBox(height: 20),
-          const Text('Pause here.\nGrow in the Word.',
-              style: TextStyle(
-                  fontFamily: 'SourceSerif4', fontSize: 36, height: 1.2)),
-          const SizedBox(height: 16),
-          const Text(
-              'Find a quiet moment with Scripture, one chapter at a time.'),
-          const SizedBox(height: 28),
-          Card(
-              child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                            history.isEmpty
-                                ? 'YOUR FIRST MOMENT'
-                                : 'PICK UP WHERE YOU PAUSED',
-                            style: const TextStyle(
-                                fontSize: 11, letterSpacing: 2)),
-                        const SizedBox(height: 12),
-                        Text(chapterLabel(chapterReference),
-                            style: const TextStyle(
-                                fontFamily: 'SourceSerif4', fontSize: 28)),
-                        Text(
-                            '${selectedBible.title} · ${selectedBible.language}'),
-                        const SizedBox(height: 20),
-                        FilledButton.icon(
-                            onPressed: () => openChapter(
-                                bookIndex, chapterIndex,
-                                offset: resumeOffset),
-                            icon: const Icon(Icons.menu_book_outlined),
-                            label: const Text('Continue Reading')),
-                      ]))),
-          const SizedBox(height: 24),
-          DailyVerseCard(
-              bible: bible!,
-              selectedBible: selectedBible,
-              resolve: licensedEdition == null ? null : resolveScripture,
-              repository: dailyVerses,
-              onOpen: (reference) {
-                final parts = reference.split('.');
-                openChapter(
-                    bible!.books.indexWhere((book) => book.id == parts[0]),
-                    int.parse(parts[1]) - 1,
-                    targetVerse: reference);
-              }),
-          const SizedBox(height: 24),
-          Card(
-              child: ListTile(
-                  contentPadding: const EdgeInsets.all(20),
-                  leading: const Icon(Icons.spa_outlined, size: 32),
-                  title: const Text('My time with God'),
-                  subtitle: const Text(
-                      'Pause. Read. Reflect. Pray. Live.\nGuided moments and your private prayer journal.'),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: openGrowthPage)),
-          Card(
-              child: ListTile(
-                  leading: const Icon(Icons.quiz_outlined),
-                  title: const Text('Bible assessments'),
-                  subtitle: const Text(
-                      'Five levels · Learn, reflect, and grow in understanding'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => openAssessments())),
-          const SizedBox(height: 24),
-          Card(
-              margin: EdgeInsets.zero,
-              child: Padding(
-                  padding: const EdgeInsets.all(22),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Your reading journey',
-                            style: Theme.of(context).textTheme.titleLarge),
-                        const SizedBox(height: 6),
-                        Text('A little each day, at your own pace.',
-                            style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant)),
-                        const SizedBox(height: 22),
-                        Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                  '${(completed / 1189 * 100).toStringAsFixed(1)}%',
-                                  style: const TextStyle(
-                                      fontFamily: 'SourceSerif4',
-                                      fontSize: 36)),
-                              const SizedBox(width: 10),
-                              const Expanded(
-                                  child: Padding(
-                                      padding: EdgeInsets.only(bottom: 7),
-                                      child: Text('of the Bible read',
-                                          style: TextStyle(fontSize: 12)))),
-                            ]),
-                        const SizedBox(height: 12),
-                        LinearProgressIndicator(
-                            value: completed / 1189,
-                            minHeight: 8,
-                            borderRadius: BorderRadius.circular(8)),
-                        const SizedBox(height: 12),
-                        Text('$completed of 1,189 chapters marked as read',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant)),
-                        const SizedBox(height: 22),
-                        Row(
+        physics: const ClampingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics()),
+        slivers: [
+          SliverPadding(
+              padding: const EdgeInsets.all(28),
+              sliver: SliverList.list(children: [
+                const SizedBox(height: 16),
+                Text('PAUSE. REFLECT. GROW.',
+                    style: TextStyle(
+                        letterSpacing: 3,
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.primary)),
+                const SizedBox(height: 20),
+                const Text('Pause here.\nGrow in the Word.',
+                    style: TextStyle(
+                        fontFamily: 'SourceSerif4', fontSize: 36, height: 1.2)),
+                const SizedBox(height: 16),
+                const Text(
+                    'Find a quiet moment with Scripture, one chapter at a time.'),
+                const SizedBox(height: 28),
+                Card(
+                    child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              journeyStat(context,
-                                  icon: Icons.bookmark_border_rounded,
-                                  count: saved.length,
-                                  label: 'Bookmarks'),
-                              const SizedBox(width: 12),
-                              journeyStat(context,
-                                  icon: Icons.edit_note_rounded,
-                                  count: notes.length,
-                                  label: 'Reflections'),
-                            ]),
-                      ]))),
-          const SizedBox(height: 28),
-          Text('Recently opened',
-              style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-          if (history.isEmpty)
-            Card(
-                margin: EdgeInsets.zero,
-                child: Padding(
-                    padding: const EdgeInsets.all(22),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(Icons.auto_stories_outlined,
-                              color: Theme.of(context).colorScheme.primary),
-                          const SizedBox(height: 12),
-                          const Text('Your next chapter starts here.',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 8),
-                          const Text(
-                              'Recently opened chapters will appear here. Mark a chapter as read when you finish.'),
-                        ]))),
-          if (history.isNotEmpty)
-            Card(
-                margin: EdgeInsets.zero,
-                clipBehavior: Clip.antiAlias,
-                child: Column(children: [
-                  for (int index = 0;
-                      index < history.take(5).length;
-                      index++) ...[
-                    if (index > 0)
-                      Divider(
-                          height: 1,
-                          indent: 78,
-                          endIndent: 18,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .outlineVariant
-                              .withValues(alpha: .5)),
-                    historyTile(context, history[index]),
-                  ],
-                ])),
-          if (history.length > 5)
-            TextButton(
-                onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (dialogContext) => SelahDialog(
-                          title: const Text('Reading history'),
-                          content: SizedBox(
-                              width: 560,
-                              height: 460,
-                              child: ListView.builder(
-                                  itemCount: history.length,
-                                  itemBuilder: (context, index) => historyTile(
-                                      context, history[index],
-                                      close: () =>
-                                          Navigator.pop(dialogContext)))),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.pop(dialogContext),
-                                child: const Text('Close'))
-                          ],
-                        )),
-                child: const Text('View reading history')),
-          const SizedBox(height: 24),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(Icons.lock_outline_rounded,
-                size: 15,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Expanded(
-                child: Text(
-                    'Your reflections stay on this device. No account needed.',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color:
-                            Theme.of(context).colorScheme.onSurfaceVariant))),
-          ]),
+                              Text(
+                                  history.isEmpty
+                                      ? 'YOUR FIRST MOMENT'
+                                      : 'PICK UP WHERE YOU PAUSED',
+                                  style: const TextStyle(
+                                      fontSize: 11, letterSpacing: 2)),
+                              const SizedBox(height: 12),
+                              Text(chapterLabel(chapterReference),
+                                  style: const TextStyle(
+                                      fontFamily: 'SourceSerif4',
+                                      fontSize: 28)),
+                              Text(
+                                  '${selectedBible.title} · ${selectedBible.language}'),
+                              const SizedBox(height: 20),
+                              FilledButton.icon(
+                                  onPressed: () => openChapter(
+                                      bookIndex, chapterIndex,
+                                      offset: resumeOffset),
+                                  icon: const Icon(Icons.menu_book_outlined),
+                                  label: const Text('Continue Reading')),
+                            ]))),
+                const SizedBox(height: 24),
+                DailyVerseCard(
+                    bible: bible!,
+                    selectedBible: selectedBible,
+                    resolve: licensedEdition == null ? null : resolveScripture,
+                    repository: dailyVerses,
+                    onOpen: (reference) {
+                      final parts = reference.split('.');
+                      openChapter(
+                          bible!.books
+                              .indexWhere((book) => book.id == parts[0]),
+                          int.parse(parts[1]) - 1,
+                          targetVerse: reference);
+                    }),
+                const SizedBox(height: 24),
+                Card(
+                    child: ListTile(
+                        contentPadding: const EdgeInsets.all(20),
+                        leading: const Icon(Icons.spa_outlined, size: 32),
+                        title: const Text('My time with God'),
+                        subtitle: const Text(
+                            'Pause. Read. Reflect. Pray. Live.\nGuided moments and your private prayer journal.'),
+                        isThreeLine: true,
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: openGrowthPage)),
+                Card(
+                    child: ListTile(
+                        leading: const Icon(Icons.quiz_outlined),
+                        title: const Text('Bible assessments'),
+                        subtitle: const Text(
+                            'Five levels · Learn, reflect, and grow in understanding'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => openAssessments())),
+                const SizedBox(height: 24),
+                Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                        padding: const EdgeInsets.all(22),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Your reading journey',
+                                  style:
+                                      Theme.of(context).textTheme.titleLarge),
+                              const SizedBox(height: 6),
+                              Text('A little each day, at your own pace.',
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant)),
+                              const SizedBox(height: 22),
+                              Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                        '${(completed / 1189 * 100).toStringAsFixed(1)}%',
+                                        style: const TextStyle(
+                                            fontFamily: 'SourceSerif4',
+                                            fontSize: 36)),
+                                    const SizedBox(width: 10),
+                                    const Expanded(
+                                        child: Padding(
+                                            padding: EdgeInsets.only(bottom: 7),
+                                            child: Text('of the Bible read',
+                                                style:
+                                                    TextStyle(fontSize: 12)))),
+                                  ]),
+                              const SizedBox(height: 12),
+                              LinearProgressIndicator(
+                                  value: completed / 1189,
+                                  minHeight: 8,
+                                  borderRadius: BorderRadius.circular(8)),
+                              const SizedBox(height: 12),
+                              Text(
+                                  '$completed of 1,189 chapters marked as read',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant)),
+                              const SizedBox(height: 22),
+                              Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    journeyStat(context,
+                                        icon: Icons.bookmark_border_rounded,
+                                        count: saved.length,
+                                        label: 'Bookmarks'),
+                                    const SizedBox(width: 12),
+                                    journeyStat(context,
+                                        icon: Icons.edit_note_rounded,
+                                        count: notes.length,
+                                        label: 'Reflections'),
+                                  ]),
+                            ]))),
+                const SizedBox(height: 28),
+                Text('Recently opened',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                if (history.isEmpty)
+                  Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                          padding: const EdgeInsets.all(22),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.auto_stories_outlined,
+                                    color:
+                                        Theme.of(context).colorScheme.primary),
+                                const SizedBox(height: 12),
+                                const Text('Your next chapter starts here.',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 8),
+                                const Text(
+                                    'Recently opened chapters will appear here. Mark a chapter as read when you finish.'),
+                              ]))),
+                if (history.isNotEmpty)
+                  Card(
+                      margin: EdgeInsets.zero,
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(children: [
+                        for (int index = 0;
+                            index < history.take(5).length;
+                            index++) ...[
+                          if (index > 0)
+                            Divider(
+                                height: 1,
+                                indent: 78,
+                                endIndent: 18,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant
+                                    .withValues(alpha: .5)),
+                          historyTile(context, history[index]),
+                        ],
+                      ])),
+                if (history.length > 5)
+                  TextButton(
+                      onPressed: () => showDialog<void>(
+                          context: context,
+                          builder: (dialogContext) => SelahDialog(
+                                title: const Text('Reading history'),
+                                content: SizedBox(
+                                    width: 560,
+                                    height: 460,
+                                    child: ListView.builder(
+                                        itemCount: history.length,
+                                        itemBuilder: (context, index) =>
+                                            historyTile(context, history[index],
+                                                close: () => Navigator.pop(
+                                                    dialogContext)))),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(dialogContext),
+                                      child: const Text('Close'))
+                                ],
+                              )),
+                      child: const Text('View reading history')),
+                const SizedBox(height: 24),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(Icons.lock_outline_rounded,
+                      size: 15,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text(
+                          'Your reflections stay on this device. No account needed.',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant))),
+                ]),
+              ]))
         ]));
   }
 
@@ -1717,7 +1730,7 @@ class _SelahAppState extends State<SelahApp> {
       openChapter(hit.bookIndex, hit.chapterIndex, targetVerse: hit.key);
     } else {
       searchQuery = query;
-      selectPage(2);
+      unawaited(openSearch(navigatorKey.currentContext!));
     }
   }
 
@@ -1799,8 +1812,8 @@ class _SelahAppState extends State<SelahApp> {
       abbreviation: bible!.abbreviation,
       translation: bible!.title,
       onSearch: () {
-        searchQuery = chapterLabel(chapterReference);
-        selectPage(2);
+        if (searchQuery.isEmpty) searchQuery = chapterLabel(chapterReference);
+        unawaited(openSearch(navigatorKey.currentContext!));
       },
       onBooks: () => pickPassage(context),
       onTranslation: () => manageTranslations(context),

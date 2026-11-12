@@ -2,9 +2,15 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.6.1](https://github.com/jhombalz/selah/releases/download/v0.6.1/selah-v0.6.1-android.apk)
+[Download SELAH Android v0.6.2](https://github.com/jhombalz/selah/releases/download/v0.6.2/selah-v0.6.2-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.6.2 groups New Testament History into Jesus (Gospels) and Church (Acts),
+rotates 80 curated daily reflection passages, and adds Time with God to the main
+navigation. Search opens from the Bible toolbar. Home uses a dedicated clamped
+scroll view, and tapping Home again returns to the top. Assessment choices save
+and advance automatically; the last answer submits, without a question grid.
 
 Version 0.6.1 makes NIV/NLT selectable translations in the Bible tab and uses the
 chosen edition for daily verses, Saved previews, sharing and reflection sessions.

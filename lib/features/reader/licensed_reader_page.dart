@@ -21,6 +21,7 @@ class LicensedReaderPage extends StatefulWidget {
   final ValueChanged<bool>? onReady;
   final LicensedBibleRepository? repository;
   final VoidCallback? onTranslation;
+  final VoidCallback? onSearch;
   final ValueChanged<String>? onLocation;
   final VoidCallback? onDataChanged;
   final bool preferSavedReference;
@@ -33,6 +34,7 @@ class LicensedReaderPage extends StatefulWidget {
       this.onReady,
       this.repository,
       this.onTranslation,
+      this.onSearch,
       this.onLocation,
       this.onDataChanged,
       this.preferSavedReference = true});
@@ -414,6 +416,11 @@ class _LicensedReaderPageState extends State<LicensedReaderPage>
             automaticallyImplyLeading: widget.onTranslation == null,
             title: Text('Bible'),
             actions: [
+              if (widget.onSearch != null)
+                IconButton(
+                    tooltip: 'Find a passage',
+                    onPressed: widget.onSearch,
+                    icon: const Icon(Icons.search)),
               if (widget.onTranslation != null)
                 OutlinedButton(
                     onPressed: widget.onTranslation,

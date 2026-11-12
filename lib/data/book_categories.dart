@@ -3,7 +3,9 @@ class BookCategory {
   final String title;
   final bool oldTestament;
   final List<String> books;
-  const BookCategory(this.id, this.title, this.oldTestament, this.books);
+  final String? section;
+  const BookCategory(this.id, this.title, this.oldTestament, this.books,
+      {this.section});
 }
 
 // Conventional grouping for the app's 66-book Protestant canon.
@@ -41,8 +43,11 @@ const bookCategories = [
     'ZEC',
     'MAL'
   ]),
-  BookCategory('new-gospels', 'Gospels', false, ['MAT', 'MRK', 'LUK', 'JHN']),
-  BookCategory('new-history', 'History', false, ['ACT']),
+  BookCategory('new-gospels', 'History of Jesus (Gospels)', false,
+      ['MAT', 'MRK', 'LUK', 'JHN'],
+      section: 'History'),
+  BookCategory('new-history', 'History of the Church (Acts)', false, ['ACT'],
+      section: 'History'),
   BookCategory('new-pauline', 'Pauline Letters', false, [
     'ROM',
     '1CO',

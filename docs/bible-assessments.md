@@ -34,10 +34,14 @@ battery restrictions, force-stop and manufacturer settings can delay or prevent
 the expiry notification; the saved deadline remains authoritative. SELAH does
 not run a foreground service. Browser push notifications are not implemented.
 
-Choices, question position and review flags are saved as you go. Flagging a
-question does not affect grading. A submission confirmation reports unanswered
-questions. After submission, choices cannot be edited. Unanswered questions are
-incorrect. Storage errors show a retry message while the timer keeps running.
+Since v0.6.2, tapping an answer saves it and moves to the next unanswered question
+in one transaction. Answering the final question submits automatically and starts
+the 24-hour retake wait. The start warning explains this. There is no numbered
+question grid, review flag control, or manual submission button. Choose carefully
+before tapping: the normal flow does not return to previous questions. Older
+attempts keep their saved choices and advance to their remaining questions.
+After submission, choices cannot be edited. At time expiry, unanswered questions
+are incorrect. Storage errors show a retry message while the timer keeps running.
 
 Results show Passed/Failed, total score, percentage and topic totals. They do
 not reveal correct choices, individual-question correctness or an answer review.

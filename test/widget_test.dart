@@ -78,13 +78,20 @@ void main() {
         database: database,
         initialData: const UserData()));
     final home = find.byKey(const PageStorageKey('home-scroll'));
-    final list = tester.widget<ListView>(home);
+    final list = tester.widget<CustomScrollView>(home);
     final controller = list.controller!;
     for (var i = 0; i < 3; i++) {
       await tester.drag(home, const Offset(0, -450));
       await tester.pumpAndSettle();
     }
     expect(controller.offset, greaterThan(300));
+    // Reversing at the very bottom must work before changing tabs, too.
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final bottom = controller.offset;
+    await tester.drag(home, const Offset(0, 350));
+    await tester.pumpAndSettle();
+    expect(controller.offset, lessThan(bottom));
     await tester.tap(find.text('Saved'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Home'));
@@ -96,6 +103,36 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(controller.offset, 0);
+    await tester.drag(home, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    expect(controller.offset, 0);
+    expect(find.text('Continue Reading').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Time with God is a bottom tab and Search stays inside Bible',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(SelahApp(
+        initialBible: bible,
+        database: database,
+        initialData: const UserData()));
+    expect(find.text('Search'), findsNothing);
+    await tester.tap(find.text('Time with God'));
+    await tester.pumpAndSettle();
+    expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        2);
+    expect(find.byTooltip('Back'), findsNothing);
+    expect(find.text('Time with God'), findsOneWidget);
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
     expect(find.text('Continue Reading').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -245,7 +282,9 @@ void main() {
         initialBible: bible,
         database: database,
         initialData: const UserData()));
-    await tester.tap(find.text('Search'));
+    await tester.tap(find.text('Bible').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('reader-search')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Juan 3:16');
     await tester.pumpAndSettle();
@@ -258,7 +297,7 @@ void main() {
     expect(
         tester.getRect(verse).overlaps(const Rect.fromLTWH(0, 56, 1280, 944)),
         isTrue);
-    await tester.tap(find.text('Search'));
+    await tester.tap(find.byKey(const ValueKey('reader-search')));
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
         'Juan 3:16');

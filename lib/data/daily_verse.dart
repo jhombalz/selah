@@ -1,34 +1,92 @@
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
-import 'package:http/http.dart' as http;
 import 'bible.dart';
 import 'user_database.dart';
 
 String dailyVerseDay(DateTime date) =>
     '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-/// A stable daily draw from every available verse, including combined verses.
-String dailyVerseReference(Bible bible, DateTime date) {
-  final total = bible.books.fold<int>(
-      0,
-      (count, book) =>
-          count +
-          book.chapters.fold<int>(0, (n, chapter) => n + chapter.length));
-  final hash = sha256
-      .convert(utf8.encode('selah-daily-${dailyVerseDay(date)}'))
-      .toString();
-  var index = int.parse(hash.substring(0, 8), radix: 16) % total;
-  for (final book in bible.books) {
-    for (var chapter = 0; chapter < book.chapters.length; chapter++) {
-      final verses = book.chapters[chapter];
-      if (index < verses.length) {
-        return '${book.id}.${chapter + 1}.${verses[index].number}';
-      }
-      index -= verses.length;
-    }
-  }
-  throw StateError('This Bible has no verses.');
-}
+/// Well-known passages selected for reflection, with the full chapter available.
+const dailyMemoryVerses = [
+  'GEN.1.1',
+  'JHN.3.16',
+  'PSA.23.1',
+  'PRO.3.5-6',
+  'PHP.4.6-7',
+  'MAT.11.28-30',
+  'ROM.8.38-39',
+  'ISA.40.31',
+  'MIC.6.8',
+  'JOS.1.9',
+  'PSA.46.1',
+  'JHN.14.6',
+  'GAL.5.22-23',
+  'EPH.2.8-10',
+  'HEB.11.1',
+  '1CO.13.4-7',
+  'ROM.12.2',
+  'PSA.119.105',
+  'MAT.6.33',
+  'JAS.1.5',
+  '1PE.5.7',
+  'JHN.14.27',
+  'PSA.27.1',
+  '1JN.1.9',
+  'HEB.4.16',
+  'COL.3.12-14',
+  'MAT.5.14-16',
+  'ISA.41.10',
+  'PHP.4.13',
+  'PSA.34.8',
+  'JHN.15.5',
+  'ROM.5.8',
+  '2CO.5.17',
+  'PSA.100.4-5',
+  'LAM.3.22-23',
+  'JAS.1.19',
+  'EPH.4.32',
+  '1TH.5.16-18',
+  '2TI.3.16-17',
+  'HEB.12.1-2',
+  'PSA.121.1-2',
+  'MAT.22.37-39',
+  'JHN.13.34-35',
+  'ROM.8.1',
+  'PRO.16.9',
+  'PSA.51.10',
+  'COL.3.23-24',
+  'GAL.6.9',
+  '1CO.10.13',
+  'HEB.13.5-6',
+  'PSA.19.14',
+  'MAT.7.7-8',
+  'JHN.16.33',
+  'ROM.15.13',
+  'EPH.6.10-11',
+  'PHP.1.6',
+  '2TI.1.7',
+  'JAS.4.8',
+  '1JN.4.19',
+  'REV.21.4',
+  'PSA.37.4-5',
+  'PRO.4.23',
+  'MAT.5.9',
+  'LUK.6.31',
+  'JHN.8.12',
+  'ROM.12.12',
+  '1CO.16.13-14',
+  '2CO.12.9',
+  'GAL.2.20',
+  'EPH.3.20-21',
+  'PHP.4.8',
+  'COL.3.15',
+  '1TH.5.11',
+  'HEB.10.24-25',
+  'JAS.1.22',
+  '1PE.4.8',
+  '1JN.4.7-8',
+  'PSA.56.3',
+  'ISA.26.3',
+  'DEU.6.5',
+];
 
 bool availableDailyReference(Bible bible, String reference) {
   final parts = reference.split('.');
@@ -48,6 +106,20 @@ bool availableDailyReference(Bible bible, String reference) {
       Bible.overlaps(reference, '${parts[0]}.$chapter.${verse.number}'));
 }
 
+String dailyVerseReference(Bible bible, DateTime date) {
+  final available = dailyMemoryVerses
+      .where((ref) => availableDailyReference(bible, ref))
+      .toList();
+  if (available.isEmpty) {
+    throw StateError(
+        'No daily reflection passages are available in this Bible.');
+  }
+  final day = DateTime.utc(date.year, date.month, date.day)
+      .difference(DateTime.utc(2026, 1, 1))
+      .inDays;
+  return available[day % available.length];
+}
+
 class DailyVerseChoice {
   final String reference;
   final bool online;
@@ -56,86 +128,20 @@ class DailyVerseChoice {
 
 class DailyVerseRepository {
   final UserDatabase? database;
-  final http.Client Function() clientFactory;
-  DailyVerseRepository({this.database, http.Client Function()? clientFactory})
-      : clientFactory = clientFactory ?? http.Client.new;
-  final _clients = <http.Client>{};
-  final _memory = <String, DailyVerseChoice>{};
-  final _attempted = <String, DateTime>{};
+  DailyVerseRepository({this.database});
   bool _disposed = false;
-
   Future<DailyVerseChoice> load(Bible bible, DateTime date) async {
-    final day = dailyVerseDay(date);
-    var cachedChoice = _memory[day];
-    if (cachedChoice == null && database != null && !_disposed) {
-      try {
-        final cached = await database!.dailyVerse(day);
-        if (cached != null &&
-            availableDailyReference(bible, cached.reference)) {
-          cachedChoice =
-              DailyVerseChoice(cached.reference, online: cached.online);
-        }
-      } catch (_) {
-        /* The reader remains usable if cache storage is unavailable. */
-      }
-    }
-    var choice =
-        cachedChoice ?? DailyVerseChoice(dailyVerseReference(bible, date));
-    if (!availableDailyReference(bible, choice.reference)) {
-      choice = DailyVerseChoice(dailyVerseReference(bible, date));
-    }
-    if (!choice.online &&
-        !_disposed &&
-        (_attempted[day] == null ||
-            DateTime.now().difference(_attempted[day]!) >=
-                const Duration(seconds: 15))) {
-      _attempted
-        ..clear()
-        ..[day] = DateTime.now();
-      final client = clientFactory();
-      _clients.add(client);
-      try {
-        // Only use the reference. Scripture always comes from the selected Bible.
-        final response = await client
-            .get(Uri.parse('https://bible-api.com/data/web/random'))
-            .timeout(const Duration(seconds: 8));
-        if (response.statusCode == 200 && response.bodyBytes.length <= 65536) {
-          final data = jsonDecode(response.body);
-          final verse = data is Map ? data['random_verse'] : null;
-          if (verse is Map &&
-              verse['book_id'] is String &&
-              verse['chapter'] is int &&
-              verse['verse'] is int) {
-            final reference =
-                '${verse['book_id']}.${verse['chapter']}.${verse['verse']}';
-            if (availableDailyReference(bible, reference)) {
-              choice = DailyVerseChoice(reference, online: true);
-            }
-          }
-        }
-      } catch (_) {
-        /* Offline, timeout, and invalid responses use local Scripture. */
-      } finally {
-        _clients.remove(client);
-        client.close();
-      }
-    }
+    final reference = dailyVerseReference(bible, date);
     if (!_disposed) {
-      _memory
-        ..clear()
-        ..[day] = choice;
       try {
-        await database?.cacheDailyVerse(day, choice.reference, choice.online);
-      } catch (_) {/* Best-effort cache. */}
+        await database?.cacheDailyVerse(dailyVerseDay(date), reference, false);
+      } catch (_) {
+        /* Daily Scripture still works if the cache cannot be written. */
+      }
     }
-    return choice;
+    // Replace legacy unrestricted random choices, including today's old cache.
+    return DailyVerseChoice(reference);
   }
 
-  void dispose() {
-    _disposed = true;
-    for (final client in _clients.toList()) {
-      client.close();
-    }
-    _clients.clear();
-  }
+  void dispose() => _disposed = true;
 }

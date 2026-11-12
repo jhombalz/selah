@@ -108,6 +108,9 @@ class _DailyVerseCardState extends State<DailyVerseCard>
                       color: Theme.of(context).colorScheme.primary)),
               const SizedBox(height: 8),
               Text(MaterialLocalizations.of(context).formatMediumDate(today)),
+              const SizedBox(height: 6),
+              const Text('A passage to remember and reflect on.',
+                  style: TextStyle(fontSize: 12)),
               const SizedBox(height: 16),
               if (widget.resolve != null)
                 ScripturePreview(

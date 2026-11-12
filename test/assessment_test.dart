@@ -88,9 +88,14 @@ void main() {
     await tap(q.choices[1]);
     expect(
         (await tester.runAsync(store.load))!.single.answers[a.order.first], 1);
-    await tap('Submit assessment');
-    expect(find.text('Submit assessment?'), findsOneWidget);
-    await tap('Submit');
+    expect((await tester.runAsync(store.load))!.single.current, 1);
+    expect(find.text('Submit assessment'), findsNothing);
+    expect(find.text('Flag for review'), findsNothing);
+    for (var index = 1; index < 20; index++) {
+      final current = (await tester.runAsync(store.load))!.single;
+      final question = assessmentBank[0][current.order[current.current]];
+      await tap(question.choices[1]);
+    }
     expect(find.text('Failed'), findsOneWidget);
     expect(find.text('0/20 · 0%'), findsOneWidget);
     expect(find.text(q.prompt), findsNothing);
@@ -100,6 +105,29 @@ void main() {
     expect((await tester.runAsync(store.load))!.single.submitted, isTrue);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  test(
+      'Automatic answers advance atomically and duplicate taps cannot skip questions',
+      () async {
+    final a = await store.start(1);
+    final first = a.order.first;
+    await Future.wait([
+      store.answerAndAdvance(a.id, first, 1),
+      store.answerAndAdvance(a.id, first, 2),
+    ]);
+    var saved = (await store.load()).single;
+    expect(saved.answers.length, 1);
+    expect(saved.current, 1);
+    for (var i = 1; i < 20; i++) {
+      await store.answerAndAdvance(a.id, saved.order[saved.current], 0);
+      saved = (await store.load()).single;
+    }
+    expect(saved.submittedAt, now);
+    expect(saved.answers.length, 20);
+    expect(saved.score, 19);
+    await store.answerAndAdvance(a.id, first, 0);
+    expect((await store.load()).single.score, 19);
   });
 
   test('Locked levels, one active attempt, 80% passing and sequential unlock',
