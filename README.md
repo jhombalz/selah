@@ -2,9 +2,16 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.5.0](https://github.com/jhombalz/selah/releases/download/v0.5.0/selah-v0.5.0-android.apk)
+[Download SELAH Android v0.6.0](https://github.com/jhombalz/selah/releases/download/v0.6.0/selah-v0.6.0-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.6.0 adds Android-only NIV and NLT chapter reading through API.Bible.
+Open Bible translations and choose Read NIV or Read NLT. Opened chapters are
+cached for up to 30 days, with a limit of 60 recent chapters; this is not a full
+offline download. Personal notes, highlights and bookmarks use shared Scripture
+references. NIV/NLT audio and TTS remain disabled pending permission.
+GitHub Pages remains on v0.5.0. See [Android online editions](docs/android-online-editions.md).
 
 Version 0.5.0 refreshes the reader toolbar and adds desktop edge navigation,
 offline source headings, BSB section references and publisher footnotes, KJV

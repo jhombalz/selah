@@ -22,6 +22,7 @@ void main() {
           'audioFollow': 'false',
           'paragraphs': 'true',
           'redLetters': 'false',
+          'licensedLast_niv': 'JHN.3',
           'fontSize': '28',
           'translation': 'asv',
           'lastChapter': 'GEN.1',

@@ -132,6 +132,8 @@ class UserBackup {
             throw const FormatException('Invalid reading position.');
           }
         case 'lastChapter':
+        case 'licensedLast_niv':
+        case 'licensedLast_nlt':
           _reference(value, canon, chapterOnly: true);
         case 'translation':
           _translation(value);

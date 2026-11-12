@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart'
     show LicenseRegistry, LicenseEntryWithLineBreaks;
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'data/bible.dart';
+import 'data/licensed_bible.dart';
+import 'features/reader/licensed_reader_page.dart';
 import 'features/reader/reader_toolbar.dart';
 import 'features/reader/reader_preferences_sheet.dart';
 import 'features/reader/passage_paragraph.dart';
@@ -104,6 +106,8 @@ class _SelahAppState extends State<SelahApp> {
   final focus = FocusController();
   late final focusRoutes = FocusRouteObserver(scheduleFocusSync);
   bool focusSyncScheduled = false;
+  Route<void>? licensedReaderRoute;
+  bool licensedReaderReady = false;
   bool focusAvailable = false, focusEnabled = false;
   String? pendingFocusAction;
   GrowthEntry? activeGrowthSession;
@@ -141,9 +145,11 @@ class _SelahAppState extends State<SelahApp> {
           unawaited(openAssessments(resume: true));
         }
       }
-      unawaited(focus.readingVisible(page == 1 &&
-          bible != null &&
-          !(navigatorKey.currentState?.canPop() ?? false)));
+      unawaited(focus.readingVisible(
+          (licensedReaderReady && licensedReaderRoute?.isCurrent == true) ||
+              (page == 1 &&
+                  bible != null &&
+                  !(navigatorKey.currentState?.canPop() ?? false))));
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }
@@ -491,14 +497,37 @@ class _SelahAppState extends State<SelahApp> {
     });
   }
 
-  Future<void> manageTranslations(BuildContext context) {
+  Future<void> openLicensedReader(LicensedEdition edition) async {
+    if (!LicensedBibleAccess.available || licensedReaderRoute != null) return;
+    final route = MaterialPageRoute<void>(
+        builder: (_) => LicensedReaderPage(
+            edition: edition,
+            canon: bundledBible!,
+            database: database,
+            initialReference: chapterReference,
+            onReady: (value) {
+              licensedReaderReady = value;
+              if (mounted) scheduleFocusSync();
+            }));
+    licensedReaderRoute = route;
+    try {
+      await Navigator.of(navigatorKey.currentContext!).push(route);
+    } finally {
+      licensedReaderReady = false;
+      licensedReaderRoute = null;
+      if (mounted) scheduleFocusSync();
+    }
+  }
+
+  Future<void> manageTranslations(BuildContext context) async {
     unawaited(chapterAudio.stop());
-    return Navigator.of(context).push<void>(MaterialPageRoute(
+    await Navigator.of(context).push<void>(MaterialPageRoute(
         builder: (_) => TranslationsPage(
               database: database,
               bundled: bundledBible!,
               activeId: bible!.id,
               onSelect: (selected) => activateBible(selected),
+              onReadOnline: openLicensedReader,
               onRemove: (id) async {
                 await pendingWrites;
                 await database.removeTranslation(id);
@@ -507,6 +536,27 @@ class _SelahAppState extends State<SelahApp> {
                 }
               },
             )));
+    final data = await database.load();
+    if (mounted) {
+      setState(() {
+        saved
+          ..clear()
+          ..addAll(data.bookmarks);
+        notes
+          ..clear()
+          ..addAll(data.notes);
+        noteTranslations
+          ..clear()
+          ..addAll(data.noteTranslations);
+        highlights
+          ..clear()
+          ..addAll(data.highlights.map((k, v) => MapEntry(k, Color(v))));
+        history = data.history;
+        fontSize =
+            (double.tryParse(data.preferences['fontSize'] ?? '') ?? fontSize)
+                .clamp(16, 32);
+      });
+    }
   }
 
   String get chapterReference =>

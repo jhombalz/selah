@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../data/bible.dart';
 import '../../data/translations.dart';
 import '../../data/user_database.dart';
+import '../../data/licensed_bible.dart';
 
 class TranslationsPage extends StatefulWidget {
   final UserDatabase database;
@@ -12,12 +13,14 @@ class TranslationsPage extends StatefulWidget {
   final String activeId;
   final Future<void> Function(Bible) onSelect;
   final Future<void> Function(String) onRemove;
+  final Future<void> Function(LicensedEdition)? onReadOnline;
   const TranslationsPage(
       {super.key,
       required this.database,
       required this.bundled,
       required this.activeId,
       required this.onSelect,
+      this.onReadOnline,
       required this.onRemove});
   @override
   State<TranslationsPage> createState() => _TranslationsPageState();
@@ -211,6 +214,41 @@ class _TranslationsPageState extends State<TranslationsPage> {
                         onPressed: loading ? null : refresh,
                         child: const Text('Refresh installed translations')),
                     const SizedBox(height: 12)
+                  ],
+                  if (LicensedBibleAccess.supported &&
+                      widget.onReadOnline != null &&
+                      (language == 'All' || language == 'English')) ...[
+                    Text('Online editions',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    for (final edition in licensedEditions)
+                      Card(
+                          child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(edition.name,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleLarge),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                        'English · Read chapters online. Opened chapters can be saved for up to 30 days. No complete download or audio.'),
+                                    const SizedBox(height: 12),
+                                    FilledButton.icon(
+                                        onPressed: LicensedBibleAccess.available
+                                            ? () =>
+                                                widget.onReadOnline!(edition)
+                                            : null,
+                                        icon: const Icon(
+                                            Icons.menu_book_outlined),
+                                        label: Text(
+                                            'Read ${edition.abbreviation}')),
+                                    if (!LicensedBibleAccess.available)
+                                      const Text(
+                                          'Available in the configured Android release.'),
+                                  ]))),
+                    const SizedBox(height: 16),
                   ],
                   for (final spec in translationCatalog.where(
                       (spec) => language == 'All' || spec.language == language))
