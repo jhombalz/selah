@@ -9,18 +9,33 @@ import 'bible.dart';
 import 'book_names.dart';
 import 'user_database.dart';
 import 'repository_translation.dart';
+import 'xml_translation.dart';
 
 class TranslationSpec {
   final String id, title, abbreviation, language, sourceId, textHash, license;
   final String? jsonSource;
+  final String? xmlSource;
   const TranslationSpec(this.id, this.title, this.abbreviation, this.language,
       this.sourceId, this.textHash, this.license,
-      {this.jsonSource});
+      {this.jsonSource, this.xmlSource});
+  bool get isRepository => jsonSource != null || xmlSource != null;
   String get source =>
-      jsonSource ?? 'https://ebible.org/Scriptures/${sourceId}_vpl.zip';
+      xmlSource ??
+      jsonSource ??
+      'https://ebible.org/Scriptures/${sourceId}_vpl.zip';
 }
 
 const translationCatalog = [
+  TranslationSpec(
+      'mbbceb99',
+      'Maayong Balita Biblia (1999)',
+      'MBBCEB99',
+      'Cebuano',
+      'Cebuano1999Bible',
+      '5237563acad9545e6f42dee7ae9996800c9b2dd811862e7aa7ba2cf006ff2bc5',
+      'Maayong Balita Biblia © Philippine Bible Society, 1999. All rights reserved.\nhttps://www.bible.com/versions/2188\nText supplied from the app owner’s repository; file availability does not grant publisher rights. Blank continuation entries are displayed as merged verse ranges. Known omitted verses and absent entries remain gaps.',
+      xmlSource:
+          'https://raw.githubusercontent.com/jhombalz/selah_translation/d68d65dd9ac87e53c759f1a4e649bbc1c1babd49/Cebuano1999Bible.xml'),
   TranslationSpec(
       'niv',
       'New International Version',
@@ -102,13 +117,22 @@ const translationCatalog = [
 class DownloadCancelled implements Exception {}
 
 Bible _parseRepository((String, Bible, TranslationSpec) input) =>
-    parseRepositoryTranslation(
-        input.$1,
-        input.$2,
-        input.$3.id,
-        input.$3.title,
-        input.$3.abbreviation,
-        '${input.$3.license}\n\nSource: ${input.$3.source}');
+    input.$3.xmlSource != null
+        ? parseXmlTranslation(
+            input.$1,
+            input.$2,
+            input.$3.id,
+            input.$3.title,
+            input.$3.abbreviation,
+            input.$3.language,
+            '${input.$3.license}\n\nSource: ${input.$3.source}')
+        : parseRepositoryTranslation(
+            input.$1,
+            input.$2,
+            input.$3.id,
+            input.$3.title,
+            input.$3.abbreviation,
+            '${input.$3.license}\n\nSource: ${input.$3.source}');
 
 class TranslationDownloader {
   final http.Client Function() clientFactory;
@@ -129,7 +153,7 @@ class TranslationDownloader {
     _cancelled = false;
     final client = _client = clientFactory();
     try {
-      final uri = kIsWeb && spec.jsonSource == null
+      final uri = kIsWeb && !spec.isRepository
           ? Uri.base.resolve('translations/${spec.id}.zip')
           : Uri.parse(spec.source);
       final response = await client
@@ -156,7 +180,7 @@ class TranslationDownloader {
       }
       progress(.88, 'Checking package integrity');
       await Future<void>.delayed(Duration.zero);
-      if (spec.jsonSource != null) {
+      if (spec.isRepository) {
         final raw = bytes.takeBytes();
         if (sha256.convert(raw).toString() != spec.textHash) {
           throw const FormatException(

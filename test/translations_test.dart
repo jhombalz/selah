@@ -17,7 +17,7 @@ void main() {
   setUpAll(() async => bundled = await Bible.load());
 
   for (final spec in translationCatalog
-      .where((spec) => spec.id != 'cebocb' && spec.jsonSource == null)) {
+      .where((spec) => spec.id != 'cebocb' && !spec.isRepository)) {
     test(
         '${spec.abbreviation} package passes integrity and complete-canon validation',
         () async {

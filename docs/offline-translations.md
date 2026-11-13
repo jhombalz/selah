@@ -1,4 +1,26 @@
-# Offline NIV and NLT
+# Offline repository translations
+
+## Maayong Balita Biblia (1999)
+
+In v0.7.1, choose **Download MBBCEB99**, then **Use MBBCEB99** in Bible
+translations. The initial 5.3 MB XML download contains 66 books and 1,189
+chapters. Reading, search and annotations then work locally.
+
+The supplied Cebuano1999Bible.xml is pinned to commit
+`d68d65dd9ac87e53c759f1a4e649bbc1c1babd49` with SHA-256
+`5237563acad9545e6f42dee7ae9996800c9b2dd811862e7aa7ba2cf006ff2bc5`.
+It has 30,748 numbered entries, including 30,557 nonempty passages and 191
+blank entries. Consecutive blank continuations extend the preceding passage,
+for example Genesis 6:1–2. Known textual omissions remain gaps, as do absent
+numbered elements. No replacement Scripture wording is invented.
+
+The importer validates numbering, chapter counts, entry totals and integrity
+before installation. It rejects DTD/entity declarations and nested verse markup.
+Publisher copyright and source attribution remain in Source & license.
+User confirmation of merged numbering establishes a technical interpretation
+of this file; it does not establish redistribution permission.
+
+## NIV and NLT
 
 In v0.7.0, open Bible translations, choose **Download NIV** or **Download NLT**,
 then **Use NIV/NLT**. Internet is needed for the initial download, approximately

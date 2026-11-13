@@ -2,9 +2,15 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.7.0](https://github.com/jhombalz/selah/releases/download/v0.7.0/selah-v0.7.0-android.apk)
+[Download SELAH Android v0.7.1](https://github.com/jhombalz/selah/releases/download/v0.7.1/selah-v0.7.1-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.7.1 adds **Maayong Balita Biblia (1999), MBBCEB99** as a one-time
+offline download under Bible translations. Download it, then choose Use MBBCEB99.
+Merged passages such as Genesis 6:1–2 retain their full reference ranges;
+known omitted verses and missing source entries remain gaps. Copyright and
+source notices are retained. GitHub Pages is unchanged.
 
 Version 0.7.0 replaces API-backed NIV/NLT with one-time offline downloads from
 the owner's translation repository. Select Download NIV/NLT, then Use NIV/NLT.
