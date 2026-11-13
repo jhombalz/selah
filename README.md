@@ -2,9 +2,13 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.7.1](https://github.com/jhombalz/selah/releases/download/v0.7.1/selah-v0.7.1-android.apk)
+[Download SELAH Android v0.7.2](https://github.com/jhombalz/selah/releases/download/v0.7.2/selah-v0.7.2-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.7.2 fixes a navigation race when leaving Bible translations while
+an edition is loading. Completion closes only its own active translation route;
+it cannot dismiss the Bible reader or the app's home route.
 
 Version 0.7.1 adds **Maayong Balita Biblia (1999), MBBCEB99** as a one-time
 offline download under Bible translations. Download it, then choose Use MBBCEB99.

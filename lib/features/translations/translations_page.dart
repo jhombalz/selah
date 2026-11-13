@@ -116,6 +116,7 @@ class _TranslationsPageState extends State<TranslationsPage> {
   }
 
   Future<void> select(TranslationSpec spec) async {
+    final route = ModalRoute.of(context);
     setState(() {
       loading = true;
       error = null;
@@ -124,9 +125,15 @@ class _TranslationsPageState extends State<TranslationsPage> {
       final bible = spec.id == 'cebocb'
           ? widget.bundled
           : await loadInstalledBible(widget.database, spec.id);
+      if (!mounted || route?.isCurrent == false) return;
       if (bible == null) throw StateError('Not installed');
       await widget.onSelect(bible);
-      if (mounted) setState(() => active = spec.id);
+      if (!mounted) return;
+      setState(() => active = spec.id);
+      // Loading may outlive this route. Never pop a different screen (or home).
+      if (route?.isCurrent == true && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     } catch (_) {
       if (mounted) {
         setState(() => error =

@@ -522,10 +522,7 @@ class _SelahAppState extends State<SelahApp> {
               database: database,
               bundled: bundledBible!,
               activeId: bible!.id,
-              onSelect: (selected) async {
-                await activateBible(selected);
-                if (context.mounted) Navigator.of(context).pop();
-              },
+              onSelect: activateBible,
               onRemove: (id) async {
                 await pendingWrites;
                 await database.removeTranslation(id);
