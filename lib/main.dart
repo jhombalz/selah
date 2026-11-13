@@ -313,7 +313,7 @@ class _SelahAppState extends State<SelahApp> {
     }
     openChapter(book, chapter, preserveAudio: true);
     unawaited(chapterAudio.toggle(bible!.id, bible!.books[book].id, chapter + 1,
-        continuePlayback: true));
+        continuePlayback: true, chapterText: speechChapterText(book, chapter)));
   }
 
   void saveAudioPosition() {
@@ -409,10 +409,10 @@ class _SelahAppState extends State<SelahApp> {
     showDialog<void>(
         context: context,
         builder: (context) => SelahDialog(
-              title: const Text('Recorded Bible audio'),
+              title: const Text('Bible audio'),
               content: SingleChildScrollView(
                   child: SelectableText(
-                      'Streaming requires an internet connection. Recorded narration is available for WEB and BSB.\n\n${[
+                      'NLT uses text-to-speech from the selected downloaded chapter. An English device/browser voice is required; offline speech depends on an installed offline voice. Pausing resumes from the start of the current short text segment. Speech may stop when the browser or app is suspended.\n\nRecorded narration is available for WEB and BSB and requires an internet connection.\n\n${[
                 catalog,
                 ...catalog.alternatives.values
               ].map((edition) => '${edition.translation.toUpperCase()} · ${edition.narrator}\n${edition.editionNote}\n${edition.license}\nSource: ${edition.source}').join('\n\n')}')),
@@ -1510,11 +1510,22 @@ class _SelahAppState extends State<SelahApp> {
             save(() => database.setPreferences({'redLetters': '$value'}));
           }));
 
-  String get audioLabel => chapterAudio.playing
-      ? 'Pause ${bible!.abbreviation} audio'
-      : chapterAudio.status == ChapterAudioStatus.paused
-          ? 'Resume ${bible!.abbreviation} audio · Internet required'
-          : 'Play ${bible!.abbreviation} audio · Internet required';
+  String? speechChapterText(int book, int chapter) => ChapterAudioController
+          .usesSpeech(bible!.id)
+      ? '${bible!.books[book].name} ${chapter + 1}. ${bible!.books[book].chapters[chapter].map((v) => v.text).join(' ')}'
+      : null;
+
+  String get audioLabel {
+    final speech = ChapterAudioController.usesSpeech(bible!.id);
+    final action = chapterAudio.playing
+        ? 'Pause'
+        : chapterAudio.status == ChapterAudioStatus.paused
+            ? 'Resume'
+            : 'Play';
+    return speech
+        ? '$action ${bible!.abbreviation} text-to-speech · Device voice'
+        : '$action ${bible!.abbreviation} audio${chapterAudio.playing ? '' : ' · Internet required'}';
+  }
 
   List<InlineSpan> scriptureSpans(BuildContext context, BibleVerse verse) {
     final red = Theme.of(context).brightness == Brightness.dark
@@ -1710,7 +1721,8 @@ class _SelahAppState extends State<SelahApp> {
       loading: chapterAudio.loading,
       audioLabel: audioLabel,
       onAudio: () => chapterAudio.toggle(
-          bible!.id, bible!.books[bookIndex].id, chapterIndex + 1));
+          bible!.id, bible!.books[bookIndex].id, chapterIndex + 1,
+          chapterText: speechChapterText(bookIndex, chapterIndex)));
 
   Widget reader(BuildContext context) {
     final book = bible!.books[bookIndex];
@@ -1896,7 +1908,9 @@ class _SelahAppState extends State<SelahApp> {
                     loading: chapterAudio.loading,
                     label: audioLabel,
                     onPressed: () => chapterAudio.toggle(
-                        bible!.id, book.id, chapterIndex + 1)))),
+                        bible!.id, book.id, chapterIndex + 1,
+                        chapterText:
+                            speechChapterText(bookIndex, chapterIndex))))),
     ]);
   }
 
@@ -1949,13 +1963,11 @@ class _SelahAppState extends State<SelahApp> {
                   AudioPlayButton(
                       playing: chapterAudio.playing,
                       loading: chapterAudio.loading,
-                      label: chapterAudio.playing
-                          ? 'Pause ${bible!.abbreviation} audio'
-                          : chapterAudio.status == ChapterAudioStatus.paused
-                              ? 'Resume ${bible!.abbreviation} audio · Internet required'
-                              : 'Play ${bible!.abbreviation} audio · Internet required',
+                      label: audioLabel,
                       onPressed: () => chapterAudio.toggle(
-                          bible!.id, book.id, chapterIndex + 1)),
+                          bible!.id, book.id, chapterIndex + 1,
+                          chapterText:
+                              speechChapterText(bookIndex, chapterIndex))),
                   const SizedBox(width: 8),
                 ],
                 Expanded(child: navigation),

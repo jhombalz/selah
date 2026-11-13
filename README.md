@@ -2,9 +2,16 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.7.2](https://github.com/jhombalz/selah/releases/download/v0.7.2/selah-v0.7.2-android.apk)
+[Download SELAH Android v0.7.3](https://github.com/jhombalz/selah/releases/download/v0.7.3/selah-v0.7.3-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.7.3 adds NLT text-to-speech using the selected downloaded chapter
+and an English device/browser voice. Play, pause/resume and automatic chapter
+continuation use the shared audio controls. Pause resumes the current short
+text segment. Offline speech requires an installed offline voice; background
+speech depends on the device/browser and is not guaranteed. No speech API key
+or SELAH speech backend is used. WEB/BSB recorded narration is unchanged.
 
 Version 0.7.2 fixes a navigation race when leaving Bible translations while
 an edition is loading. Completion closes only its own active translation route;

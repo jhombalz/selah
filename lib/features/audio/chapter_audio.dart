@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../data/book_names.dart';
 
 enum ChapterAudioStatus { idle, loading, playing, paused, error }
@@ -91,6 +92,95 @@ abstract class ChapterAudioBackend {
   Future<void> dispose();
 }
 
+/// Speak bounded chunks so Android input limits cannot truncate long chapters.
+/// Pausing stops the current chunk; resuming repeats that short chunk.
+class DeviceSpeechBackend implements ChapterAudioBackend {
+  final FlutterTts tts;
+  final events = StreamController<AudioSignal>.broadcast();
+  DeviceSpeechBackend({FlutterTts? engine}) : tts = engine ?? FlutterTts();
+  List<String> chunks = [];
+  int cursor = 0, generation = 0;
+  bool disposed = false;
+  @override
+  Stream<AudioSignal> get signals => events.stream;
+  void emit(AudioSignal signal) {
+    if (!disposed) events.add(signal);
+  }
+
+  static List<String> splitText(String text) {
+    final chunks = <String>[];
+    var chunk = '';
+    for (final word in text.split(RegExp(r'\s+'))) {
+      if (word.isEmpty) continue;
+      if (chunk.length + word.length > 500 && chunk.isNotEmpty) {
+        chunks.add(chunk);
+        chunk = '';
+      }
+      chunk = chunk.isEmpty ? word : '$chunk $word';
+    }
+    if (chunk.isNotEmpty) chunks.add(chunk);
+    return chunks;
+  }
+
+  @override
+  Future<void> load(Uri url) async {
+    chunks = splitText(url.data!.contentAsString());
+    cursor = 0;
+    if (chunks.isEmpty) throw StateError('No chapter text');
+    await tts.awaitSpeakCompletion(true);
+    if (await tts.setLanguage('en-US') != 1) {
+      throw StateError('English speech voice unavailable');
+    }
+    await tts.setSpeechRate(.45);
+  }
+
+  @override
+  Future<void> play() async {
+    final run = ++generation;
+    while (!disposed && run == generation && cursor < chunks.length) {
+      emit(AudioSignal(
+          playing: true,
+          position: Duration(
+              milliseconds:
+                  chunks.take(cursor).fold<int>(0, (n, s) => n + s.length)),
+          duration: Duration(
+              milliseconds: chunks.fold<int>(0, (n, s) => n + s.length))));
+      final result = await tts.speak(chunks[cursor]);
+      if (disposed || run != generation) return;
+      if (result != 1) throw StateError('Speech playback failed');
+      cursor++;
+    }
+    if (!disposed && run == generation) {
+      emit(const AudioSignal(completed: true));
+    }
+  }
+
+  @override
+  Future<void> pause() async {
+    generation++;
+    await tts.stop();
+  }
+
+  @override
+  Future<void> rewind() async {
+    await stop();
+  }
+
+  @override
+  Future<void> stop() async {
+    generation++;
+    cursor = 0;
+    await tts.stop();
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await stop();
+    await events.close();
+  }
+}
+
 class StreamingAudioBackend implements ChapterAudioBackend {
   String mediaTitle = 'Bible audio';
   String mediaAlbum = 'SELAH';
@@ -160,13 +250,17 @@ class StreamingAudioBackend implements ChapterAudioBackend {
 class ChapterAudioController extends ChangeNotifier {
   void Function(String scope)? onCompleted;
   final ChapterAudioBackend Function() backendFactory;
+  final ChapterAudioBackend Function() speechBackendFactory;
   final Future<RecordedAudioCatalog> Function() catalogLoader;
   ChapterAudioController(
       {ChapterAudioBackend Function()? backendFactory,
+      ChapterAudioBackend Function()? speechBackendFactory,
       Future<RecordedAudioCatalog> Function()? catalogLoader})
       : backendFactory = backendFactory ?? StreamingAudioBackend.new,
+        speechBackendFactory = speechBackendFactory ?? DeviceSpeechBackend.new,
         catalogLoader = catalogLoader ?? RecordedAudioCatalog.load;
   ChapterAudioBackend? _backend;
+  bool _speechBackend = false;
   StreamSubscription<AudioSignal>? _subscription;
   Future<RecordedAudioCatalog>? _catalog;
   ChapterAudioStatus status = ChapterAudioStatus.idle;
@@ -186,7 +280,8 @@ class ChapterAudioController extends ChangeNotifier {
   Future<void> _stopping = Future.value();
 
   static bool available(String translation) =>
-      translation == 'web' || translation == 'bsb';
+      translation == 'web' || translation == 'bsb' || usesSpeech(translation);
+  static bool usesSpeech(String translation) => translation == 'nlt';
   bool get playing => status == ChapterAudioStatus.playing;
   bool get loading => status == ChapterAudioStatus.loading;
   void _emit() {
@@ -196,8 +291,9 @@ class ChapterAudioController extends ChangeNotifier {
   void _failed() {
     _generation++;
     status = ChapterAudioStatus.error;
-    error =
-        'Audio could not play. Check your internet connection and tap Play to retry.';
+    error = (_scope?.startsWith('nlt:') ?? false)
+        ? 'Text-to-speech could not play. Install or enable an English speech voice in your device or browser, then retry.'
+        : 'Audio could not play. Check your internet connection and tap Play to retry.';
     _acceptSignals = false;
     _loaded = null;
     _catalog = null;
@@ -211,7 +307,8 @@ class ChapterAudioController extends ChangeNotifier {
 
   ChapterAudioBackend get backend {
     if (_backend == null) {
-      _backend = backendFactory();
+      _speechBackend = _scope?.startsWith('nlt:') ?? false;
+      _backend = _speechBackend ? speechBackendFactory() : backendFactory();
       _subscription = _backend!.signals.listen((signal) {
         if (_disposed || !_acceptSignals) return;
         if (signal.failed) {
@@ -245,7 +342,7 @@ class ChapterAudioController extends ChangeNotifier {
   }
 
   Future<void> toggle(String translation, String book, int chapter,
-      {bool continuePlayback = false}) async {
+      {bool continuePlayback = false, String? chapterText}) async {
     if (_disposed) return;
     final scope = '$translation:$book.$chapter';
     if (!available(translation)) {
@@ -270,6 +367,14 @@ class ChapterAudioController extends ChangeNotifier {
       }
       _scope = scope;
     }
+    if (_backend != null && _speechBackend != usesSpeech(translation)) {
+      final generation = _generation;
+      await _subscription?.cancel();
+      final old = _backend!;
+      _backend = null;
+      await old.dispose();
+      if (_disposed || generation != _generation) return;
+    }
     if (_disposed) return;
     if (playing) {
       final generation = _generation;
@@ -289,9 +394,15 @@ class ChapterAudioController extends ChangeNotifier {
     _emit();
     try {
       await _stopping;
-      final catalog = await (_catalog ??= catalogLoader());
+      final catalog =
+          usesSpeech(translation) ? null : await (_catalog ??= catalogLoader());
       if (_disposed || generation != _generation) return;
-      final url = catalog.chapter(translation, book, chapter);
+      final url = usesSpeech(translation)
+          ? (chapterText == null || chapterText.trim().isEmpty
+              ? null
+              : Uri.dataFromString(chapterText,
+                  mimeType: 'text/plain', encoding: utf8))
+          : catalog!.chapter(translation, book, chapter);
       if (url == null) {
         throw StateError('No verified recording for this chapter.');
       }

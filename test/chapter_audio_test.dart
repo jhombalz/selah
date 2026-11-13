@@ -52,6 +52,62 @@ void main() {
   setUpAll(() async => catalog = await RecordedAudioCatalog.load());
 
   test(
+      'NLT speaks selected text without a recording request and stops on edition change',
+      () async {
+    final speech = FakeAudioBackend();
+    final recording = FakeAudioBackend();
+    var catalogRequests = 0;
+    final audio = ChapterAudioController(
+        backendFactory: () => recording,
+        speechBackendFactory: () => speech,
+        catalogLoader: () async {
+          catalogRequests++;
+          return catalog;
+        });
+    addTearDown(audio.dispose);
+    await audio.toggle('nlt', 'JHN', 3,
+        chapterText: 'Selected NLT chapter text.');
+    expect(speech.loads.single.data!.contentAsString(),
+        'Selected NLT chapter text.');
+    expect(catalogRequests, 0);
+    expect(audio.playing, isTrue);
+    await audio.toggle('nlt', 'JHN', 3,
+        chapterText: 'Selected NLT chapter text.');
+    expect(speech.pauses, 1);
+    await audio.toggle('nlt', 'JHN', 3,
+        chapterText: 'Selected NLT chapter text.');
+    expect(speech.plays, 2);
+    var completions = 0;
+    audio.onCompleted = (_) => completions++;
+    speech.events.add(const AudioSignal(completed: true));
+    speech.events.add(const AudioSignal(completed: true));
+    expect(completions, 1);
+    await audio.toggle('web', 'GEN', 1);
+    expect(recording.loads.single, catalog.chapter('web', 'GEN', 1));
+    expect(speech.stops, greaterThan(0));
+    expect(catalogRequests, 1);
+  });
+
+  test('Speech chunks retain words and keep long chapters within input limits',
+      () {
+    final text = List.generate(4000, (n) => 'word$n').join(' ');
+    final chunks = DeviceSpeechBackend.splitText(text);
+    expect(chunks.join(' '), text);
+    expect(chunks.every((chunk) => chunk.length <= 500), isTrue);
+    expect(chunks.length, greaterThan(1));
+  });
+
+  test('NLT missing chapter text gives a speech-specific error', () async {
+    final speech = FakeAudioBackend();
+    final audio = ChapterAudioController(speechBackendFactory: () => speech);
+    addTearDown(audio.dispose);
+    await audio.toggle('nlt', 'GEN', 1);
+    expect(audio.status, ChapterAudioStatus.error);
+    expect(audio.error, contains('speech'));
+    expect(speech.loads, isEmpty);
+  });
+
+  test(
       'Verified WEB catalog covers every chapter and never substitutes editions',
       () async {
     final bible = await Bible.load();
