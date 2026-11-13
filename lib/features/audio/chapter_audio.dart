@@ -128,8 +128,13 @@ class DeviceSpeechBackend implements ChapterAudioBackend {
     cursor = 0;
     if (chunks.isEmpty) throw StateError('No chapter text');
     await tts.awaitSpeakCompletion(true);
-    if (await tts.setLanguage('en-US') != 1) {
-      throw StateError('English speech voice unavailable');
+    final language = url.data!.parameters['language'] ?? 'en-US';
+    var ready = await tts.setLanguage(language) == 1;
+    if (!ready && language == 'fil-PH') {
+      ready = await tts.setLanguage('tl-PH') == 1;
+    }
+    if (!ready) {
+      throw StateError('Requested speech voice unavailable');
     }
     await tts.setSpeechRate(.45);
   }
@@ -281,7 +286,11 @@ class ChapterAudioController extends ChangeNotifier {
 
   static bool available(String translation) =>
       translation == 'web' || translation == 'bsb' || usesSpeech(translation);
-  static bool usesSpeech(String translation) => translation == 'nlt';
+  static bool usesFilipinoVoice(String translation) =>
+      translation == 'mbbceb99' || translation == 'cebocb';
+  static bool usesSpeech(String translation) =>
+      translation == 'nlt' || usesFilipinoVoice(translation);
+  bool get _speechScope => usesSpeech(_scope?.split(':').first ?? '');
   bool get playing => status == ChapterAudioStatus.playing;
   bool get loading => status == ChapterAudioStatus.loading;
   void _emit() {
@@ -291,8 +300,8 @@ class ChapterAudioController extends ChangeNotifier {
   void _failed() {
     _generation++;
     status = ChapterAudioStatus.error;
-    error = (_scope?.startsWith('nlt:') ?? false)
-        ? 'Text-to-speech could not play. Install or enable an English speech voice in your device or browser, then retry.'
+    error = _speechScope
+        ? 'Text-to-speech could not play. Install or enable ${usesFilipinoVoice(_scope!.split(':').first) ? 'a Filipino/Tagalog' : 'an English'} speech voice in your device or browser, then retry.'
         : 'Audio could not play. Check your internet connection and tap Play to retry.';
     _acceptSignals = false;
     _loaded = null;
@@ -307,7 +316,7 @@ class ChapterAudioController extends ChangeNotifier {
 
   ChapterAudioBackend get backend {
     if (_backend == null) {
-      _speechBackend = _scope?.startsWith('nlt:') ?? false;
+      _speechBackend = _speechScope;
       _backend = _speechBackend ? speechBackendFactory() : backendFactory();
       _subscription = _backend!.signals.listen((signal) {
         if (_disposed || !_acceptSignals) return;
@@ -401,7 +410,12 @@ class ChapterAudioController extends ChangeNotifier {
           ? (chapterText == null || chapterText.trim().isEmpty
               ? null
               : Uri.dataFromString(chapterText,
-                  mimeType: 'text/plain', encoding: utf8))
+                  mimeType: 'text/plain',
+                  encoding: utf8,
+                  parameters: {
+                      'language':
+                          usesFilipinoVoice(translation) ? 'fil-PH' : 'en-US'
+                    }))
           : catalog!.chapter(translation, book, chapter);
       if (url == null) {
         throw StateError('No verified recording for this chapter.');

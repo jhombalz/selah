@@ -51,6 +51,25 @@ void main() {
   late RecordedAudioCatalog catalog;
   setUpAll(() async => catalog = await RecordedAudioCatalog.load());
 
+  for (final edition in ['mbbceb99', 'cebocb']) {
+    test('$edition uses Filipino speech with the original Cebuano text',
+        () async {
+      final speech = FakeAudioBackend();
+      final audio = ChapterAudioController(
+          speechBackendFactory: () => speech,
+          catalogLoader: () async =>
+              throw StateError('No recording request expected'));
+      addTearDown(audio.dispose);
+      const text = 'Sa sinugdan gibuhat sa Dios ang langit ug ang yuta.';
+      await audio.toggle(edition, 'GEN', 1, chapterText: text);
+      expect(speech.loads.single.data!.contentAsString(), text);
+      expect(speech.loads.single.data!.parameters['language'], 'fil-PH');
+      expect(audio.playing, isTrue);
+      await audio.toggle(edition, 'GEN', 1, chapterText: text);
+      expect(audio.status, ChapterAudioStatus.paused);
+    });
+  }
+
   test(
       'NLT speaks selected text without a recording request and stops on edition change',
       () async {

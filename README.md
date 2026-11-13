@@ -13,6 +13,12 @@ text segment. Offline speech requires an installed offline voice; background
 speech depends on the device/browser and is not guaranteed. No speech API key
 or SELAH speech backend is used. WEB/BSB recorded narration is unchanged.
 
+MBBCEB99 and the bundled Open APD/OCCB also support an optional Filipino/Tagalog
+speech voice, selected with `fil-PH` then `tl-PH` if needed. A first-play notice
+explains that Cebuano pronunciation may be inaccurate. The Scripture text is
+not translated or altered. These editions use the same play/pause and chapter
+continuation controls. An installed matching voice is required.
+
 Version 0.7.2 fixes a navigation race when leaving Bible translations while
 an edition is loading. Completion closes only its own active translation route;
 it cannot dismiss the Bible reader or the app's home route.

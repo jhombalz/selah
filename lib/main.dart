@@ -412,7 +412,7 @@ class _SelahAppState extends State<SelahApp> {
               title: const Text('Bible audio'),
               content: SingleChildScrollView(
                   child: SelectableText(
-                      'NLT uses text-to-speech from the selected downloaded chapter. An English device/browser voice is required; offline speech depends on an installed offline voice. Pausing resumes from the start of the current short text segment. Speech may stop when the browser or app is suspended.\n\nRecorded narration is available for WEB and BSB and requires an internet connection.\n\n${[
+                      'NLT uses an English text-to-speech voice. MBBCEB99 and Open APD/OCCB can use a Filipino/Tagalog voice to read the Cebuano text; pronunciation may be inaccurate. All speech uses the selected chapter text. A matching device/browser voice is required; offline speech depends on an installed offline voice. Pausing resumes from the start of the current short text segment. Speech may stop when the browser or app is suspended.\n\nRecorded narration is available for WEB and BSB and requires an internet connection.\n\n${[
                 catalog,
                 ...catalog.alternatives.values
               ].map((edition) => '${edition.translation.toUpperCase()} · ${edition.narrator}\n${edition.editionNote}\n${edition.license}\nSource: ${edition.source}').join('\n\n')}')),
@@ -1515,6 +1515,49 @@ class _SelahAppState extends State<SelahApp> {
       ? '${bible!.books[book].name} ${chapter + 1}. ${bible!.books[book].chapters[chapter].map((v) => v.text).join(' ')}'
       : null;
 
+  bool filipinoVoiceAccepted = false;
+  bool speechNoticeOpen = false;
+  Future<void> toggleReaderAudio() async {
+    final edition = bible!.id;
+    final book = bookIndex, chapter = chapterIndex;
+    if (ChapterAudioController.usesFilipinoVoice(edition) &&
+        !filipinoVoiceAccepted) {
+      if (speechNoticeOpen) return;
+      speechNoticeOpen = true;
+      bool? accepted;
+      try {
+        accepted = await showDialog<bool>(
+          context: navigatorKey.currentContext!,
+          builder: (context) => SelahDialog(
+            title: const Text('Read Cebuano with a Filipino voice?'),
+            content: const Text(
+                'This voice is designed for Filipino/Tagalog. It will read the Cebuano words as written, but pronunciation may be inaccurate. An installed Filipino voice is required; offline playback depends on your voice engine.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Use Filipino voice')),
+            ],
+          ),
+        );
+      } finally {
+        speechNoticeOpen = false;
+      }
+      if (!mounted || accepted != true) return;
+      filipinoVoiceAccepted = true;
+    }
+    if (!mounted ||
+        bible!.id != edition ||
+        bookIndex != book ||
+        chapterIndex != chapter) {
+      return;
+    }
+    await chapterAudio.toggle(edition, bible!.books[book].id, chapter + 1,
+        chapterText: speechChapterText(book, chapter));
+  }
+
   String get audioLabel {
     final speech = ChapterAudioController.usesSpeech(bible!.id);
     final action = chapterAudio.playing
@@ -1523,7 +1566,7 @@ class _SelahAppState extends State<SelahApp> {
             ? 'Resume'
             : 'Play';
     return speech
-        ? '$action ${bible!.abbreviation} text-to-speech · Device voice'
+        ? '$action ${bible!.abbreviation} text-to-speech · ${ChapterAudioController.usesFilipinoVoice(bible!.id) ? 'Filipino voice' : 'Device voice'}'
         : '$action ${bible!.abbreviation} audio${chapterAudio.playing ? '' : ' · Internet required'}';
   }
 
@@ -1720,9 +1763,7 @@ class _SelahAppState extends State<SelahApp> {
       playing: chapterAudio.playing,
       loading: chapterAudio.loading,
       audioLabel: audioLabel,
-      onAudio: () => chapterAudio.toggle(
-          bible!.id, bible!.books[bookIndex].id, chapterIndex + 1,
-          chapterText: speechChapterText(bookIndex, chapterIndex)));
+      onAudio: toggleReaderAudio);
 
   Widget reader(BuildContext context) {
     final book = bible!.books[bookIndex];
@@ -1907,10 +1948,7 @@ class _SelahAppState extends State<SelahApp> {
                     playing: chapterAudio.playing,
                     loading: chapterAudio.loading,
                     label: audioLabel,
-                    onPressed: () => chapterAudio.toggle(
-                        bible!.id, book.id, chapterIndex + 1,
-                        chapterText:
-                            speechChapterText(bookIndex, chapterIndex))))),
+                    onPressed: toggleReaderAudio))),
     ]);
   }
 
@@ -1964,10 +2002,7 @@ class _SelahAppState extends State<SelahApp> {
                       playing: chapterAudio.playing,
                       loading: chapterAudio.loading,
                       label: audioLabel,
-                      onPressed: () => chapterAudio.toggle(
-                          bible!.id, book.id, chapterIndex + 1,
-                          chapterText:
-                              speechChapterText(bookIndex, chapterIndex))),
+                      onPressed: toggleReaderAudio),
                   const SizedBox(width: 8),
                 ],
                 Expanded(child: navigation),
