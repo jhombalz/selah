@@ -325,7 +325,9 @@ class BackupService {
                     entry.completed || other.completed);
           }
         }
-        final translation = preferences['translation'] ?? 'cebocb';
+        final translation = preferences['readerTranslation'] ??
+            preferences['translation'] ??
+            'cebocb';
         bool fallback = false;
         if (translation != 'cebocb') {
           try {
@@ -336,6 +338,7 @@ class BackupService {
         }
         if (fallback) {
           preferences['translation'] = 'cebocb';
+          preferences['readerTranslation'] = 'cebocb';
           preferences['scrollOffset'] = '0';
         }
         final growth = {for (final entry in incoming.growth) entry.id: entry};

@@ -7,9 +7,6 @@ import 'package:flutter/foundation.dart'
     show LicenseRegistry, LicenseEntryWithLineBreaks;
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'data/bible.dart';
-import 'data/licensed_bible.dart';
-import 'features/reader/licensed_reader_page.dart';
-import 'features/reader/scripture_preview.dart';
 import 'features/reader/reader_toolbar.dart';
 import 'features/reader/chapter_navigation.dart';
 import 'features/reader/reader_preferences_sheet.dart';
@@ -22,6 +19,7 @@ import 'features/reader/reader_scroll_intent.dart';
 import 'features/reader/chapter_completion_card.dart';
 import 'features/branding/selah_brand.dart';
 import 'data/translations.dart';
+import 'data/repository_translation.dart';
 import 'features/translations/translations_page.dart';
 import 'data/scripture_range.dart';
 import 'features/reader/passage_selection_layer.dart';
@@ -61,14 +59,12 @@ class SelahApp extends StatefulWidget {
   final UserDatabase? database;
   final UserData? initialData;
   final ChapterAudioController? audioController;
-  final LicensedBibleRepository? licensedRepository;
   const SelahApp(
       {super.key,
       this.initialBible,
       this.database,
       this.initialData,
-      this.audioController,
-      this.licensedRepository});
+      this.audioController});
 
   @override
   State<SelahApp> createState() => _SelahAppState();
@@ -110,45 +106,8 @@ class _SelahAppState extends State<SelahApp> {
   final focus = FocusController();
   late final focusRoutes = FocusRouteObserver(scheduleFocusSync);
   bool focusSyncScheduled = false;
-  LicensedEdition? licensedEdition;
-  Bible? licensedMetadata;
-  late final licensedRepository =
-      widget.licensedRepository ?? LicensedBibleRepository(database);
-  int licensedNavigation = 0;
-  Bible get selectedBible =>
-      licensedEdition == null ? bible! : licensedMetadata!;
+  Bible get selectedBible => bible!;
 
-  Future<Bible> resolveScripture(String reference) async {
-    final edition = licensedEdition;
-    if (edition == null) return bible!;
-    final parts = reference.split('.');
-    final chapter =
-        await licensedRepository.load(edition, parts[0], int.parse(parts[1]));
-    return licensedBibleMetadata(bundledBible!, edition, content: chapter);
-  }
-
-  Future<void> refreshReadingData() async {
-    final data = await database.load();
-    if (!mounted) return;
-    setState(() {
-      saved
-        ..clear()
-        ..addAll(data.bookmarks);
-      notes
-        ..clear()
-        ..addAll(data.notes);
-      noteTranslations
-        ..clear()
-        ..addAll(data.noteTranslations);
-      highlights
-        ..clear()
-        ..addAll(
-            data.highlights.map((key, value) => MapEntry(key, Color(value))));
-      history = data.history;
-    });
-  }
-
-  bool licensedReaderReady = false;
   bool focusAvailable = false, focusEnabled = false;
   String? pendingFocusAction;
   GrowthEntry? activeGrowthSession;
@@ -187,7 +146,6 @@ class _SelahAppState extends State<SelahApp> {
         }
       }
       unawaited(focus.readingVisible((page == 1 &&
-          (licensedEdition == null || licensedReaderReady) &&
           bible != null &&
           !(navigatorKey.currentState?.canPop() ?? false))));
     });
@@ -251,10 +209,6 @@ class _SelahAppState extends State<SelahApp> {
   void openGrowthPage() => selectPage(2);
 
   Future<void> openSearch(BuildContext context) async {
-    if (licensedEdition != null) {
-      await pickPassage(context);
-      return;
-    }
     await chapterAudio.stop();
     if (!context.mounted) return;
     await Navigator.of(context).push<void>(MaterialPageRoute(
@@ -303,7 +257,7 @@ class _SelahAppState extends State<SelahApp> {
             builder: (_) => GrowthEditor(
                 database: database,
                 bible: selectedBible,
-                resolve: licensedEdition == null ? null : resolveScripture,
+                resolve: null,
                 entry: entry,
                 onRead: readGrowthPassage)));
     if (mounted && entry.completed) setState(() => activeGrowthSession = null);
@@ -528,9 +482,6 @@ class _SelahAppState extends State<SelahApp> {
     }
     if (!mounted) return;
     setState(() {
-      licensedEdition = null;
-      licensedMetadata = null;
-      licensedReaderReady = false;
       bible = selected;
       selectedPassage = null;
       bookIndex = selected.books.indexWhere((book) => book.id == bookId);
@@ -564,42 +515,22 @@ class _SelahAppState extends State<SelahApp> {
     });
   }
 
-  Future<void> openLicensedReader(LicensedEdition edition) async {
-    if (!LicensedBibleAccess.available) return;
-    await chapterAudio.stop();
-    await pendingWrites;
-    await database.setPreferences({'readerTranslation': edition.id});
-    if (!mounted) return;
-    setState(() {
-      licensedEdition = edition;
-      licensedMetadata = licensedBibleMetadata(bundledBible!, edition);
-      licensedNavigation++;
-      licensedReaderReady = false;
-      readerControlsVisible = true;
-      page = 1;
-    });
-  }
-
   Future<void> manageTranslations(BuildContext context) async {
     unawaited(chapterAudio.stop());
     await Navigator.of(context).push<void>(MaterialPageRoute(
         builder: (_) => TranslationsPage(
               database: database,
               bundled: bundledBible!,
-              activeId: licensedEdition?.id ?? bible!.id,
+              activeId: bible!.id,
               onSelect: (selected) async {
                 await activateBible(selected);
-                if (context.mounted) Navigator.of(context).pop();
-              },
-              onReadOnline: (edition) async {
-                await openLicensedReader(edition);
                 if (context.mounted) Navigator.of(context).pop();
               },
               onRemove: (id) async {
                 await pendingWrites;
                 await database.removeTranslation(id);
                 if (bible!.id == id) {
-                  await activateBible(bundledBible!, persist: false);
+                  await activateBible(bundledBible!);
                 }
               },
             )));
@@ -630,14 +561,6 @@ class _SelahAppState extends State<SelahApp> {
       '${bible!.books[bookIndex].id}.${chapterIndex + 1}';
 
   void applyData(UserData data) {
-    licensedEdition = LicensedBibleAccess.available
-        ? licensedEditions
-            .where((e) => e.id == data.preferences['readerTranslation'])
-            .firstOrNull
-        : null;
-    licensedMetadata = licensedEdition == null
-        ? null
-        : licensedBibleMetadata(bundledBible!, licensedEdition!);
     saved.clear();
     notes.clear();
     noteTranslations.clear();
@@ -686,7 +609,9 @@ class _SelahAppState extends State<SelahApp> {
                   final result = await BackupService(database, bundledBible!)
                       .restore(backup, mode);
                   Bible restoredBible = bundledBible!;
-                  final id = result.data.preferences['translation'] ?? 'cebocb';
+                  final id = result.data.preferences['readerTranslation'] ??
+                      result.data.preferences['translation'] ??
+                      'cebocb';
                   if (id != 'cebocb') {
                     try {
                       restoredBible = await loadInstalledBible(database, id) ??
@@ -746,9 +671,7 @@ class _SelahAppState extends State<SelahApp> {
       return;
     }
     if (value != 1) unawaited(chapterAudio.stop());
-    if (value == 1 && licensedEdition != null) {
-      setState(() => page = 1);
-    } else if (value == 1) {
+    if (value == 1) {
       openChapter(bookIndex, chapterIndex, offset: resumeOffset);
     } else {
       setState(() {
@@ -761,17 +684,6 @@ class _SelahAppState extends State<SelahApp> {
 
   void openChapter(int book, int chapter,
       {double offset = 0, String? targetVerse, bool preserveAudio = false}) {
-    if (licensedEdition != null) {
-      unawaited(chapterAudio.stop());
-      setState(() {
-        bookIndex = book;
-        chapterIndex = chapter;
-        licensedReaderReady = false;
-        licensedNavigation++;
-        page = 1;
-      });
-      return;
-    }
     final keepHidden =
         page == 1 && !readerControlsVisible && targetVerse == null;
     readerRevealAtTopOnly = keepHidden;
@@ -839,12 +751,21 @@ class _SelahAppState extends State<SelahApp> {
     try {
       final bundled = widget.initialBible ?? await Bible.load();
       final userData = await database.load();
+      await database.customStatement('DELETE FROM licensed_chapter_cache');
       Bible loaded = bundled;
-      final selectedId = userData.preferences['translation'] ?? 'cebocb';
+      final selectedId = userData.preferences['readerTranslation'] ??
+          userData.preferences['translation'] ??
+          'cebocb';
       String? warning;
       if (selectedId != 'cebocb') {
         try {
-          loaded = await loadInstalledBible(database, selectedId) ?? bundled;
+          final installed = await loadInstalledBible(database, selectedId);
+          loaded = installed ?? bundled;
+          if (installed == null &&
+              (selectedId == 'niv' || selectedId == 'nlt')) {
+            warning =
+                'Download ${selectedId.toUpperCase()} once in Bible translations for offline reading. Your personal data is kept.';
+          }
         } catch (_) {
           warning =
               'The selected translation could not be opened. The bundled Cebuano Bible is available; you can re-download the other edition in Settings.';
@@ -872,7 +793,6 @@ class _SelahAppState extends State<SelahApp> {
     focus.removeListener(focusChanged);
     focus.dispose();
     dailyVerses.dispose();
-    if (widget.licensedRepository == null) licensedRepository.dispose();
     chapterAudio.removeListener(audioChanged);
     chapterAudio.onCompleted = null;
     chapterAudio.dispose();
@@ -1111,49 +1031,12 @@ class _SelahAppState extends State<SelahApp> {
                 : page == 0
                     ? home(context)
                     : page == 1
-                        ? licensedEdition == null
-                            ? reader(context)
-                            : LicensedReaderPage(
-                                key: ValueKey(
-                                    '${licensedEdition!.id}-$licensedNavigation'),
-                                edition: licensedEdition!,
-                                canon: bundledBible!,
-                                database: database,
-                                initialReference: chapterReference,
-                                repository: licensedRepository,
-                                preferSavedReference: false,
-                                initialControlsVisible: readerControlsVisible,
-                                onLocation: (reference) {
-                                  final parts = reference.split('.');
-                                  bookIndex = bible!.books.indexWhere(
-                                      (book) => book.id == parts[0]);
-                                  chapterIndex = int.parse(parts[1]) - 1;
-                                  save(() => database.setPreferences(
-                                      {'lastChapter': reference}));
-                                },
-                                onDataChanged: () =>
-                                    unawaited(refreshReadingData()),
-                                onTranslation: () =>
-                                    manageTranslations(context),
-                                onSearch: () => unawaited(openSearch(context)),
-                                onControlsVisible: (value) {
-                                  if (mounted &&
-                                      readerControlsVisible != value) {
-                                    setState(
-                                        () => readerControlsVisible = value);
-                                  }
-                                },
-                                onReady: (value) {
-                                  licensedReaderReady = value;
-                                  if (mounted) scheduleFocusSync();
-                                })
+                        ? reader(context)
                         : page == 2
                             ? GrowthPage(
                                 database: database,
                                 bible: selectedBible,
-                                resolve: licensedEdition == null
-                                    ? null
-                                    : resolveScripture,
+                                resolve: null,
                                 currentReference: currentGrowthReference,
                                 embedded: true,
                                 onRead: readGrowthPassage)
@@ -1161,7 +1044,7 @@ class _SelahAppState extends State<SelahApp> {
                                 ? library(context)
                                 : settings(context);
             return Scaffold(
-              appBar: readingFocus || (page == 1 && licensedEdition != null)
+              appBar: readingFocus
                   ? null
                   : page == 1 && bible != null
                       ? AppBar(
@@ -1415,7 +1298,7 @@ class _SelahAppState extends State<SelahApp> {
                 DailyVerseCard(
                     bible: bible!,
                     selectedBible: selectedBible,
-                    resolve: licensedEdition == null ? null : resolveScripture,
+                    resolve: null,
                     repository: dailyVerses,
                     onOpen: (reference) {
                       final parts = reference.split('.');
@@ -1733,6 +1616,16 @@ class _SelahAppState extends State<SelahApp> {
   List<Widget> chapterContent(
       BuildContext context, BibleBook book, List<BibleVerse> verses) {
     final result = <Widget>[];
+    if (bible!.id == 'nlt' && book.id == 'NUM' && chapterIndex < 2) {
+      result.add(Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(16)),
+          child: const Text(nltRepositoryWarning,
+              style: TextStyle(fontSize: 14))));
+    }
     var group = <BibleVerse>[];
     void flush() {
       if (group.isEmpty) return;
@@ -2191,8 +2084,7 @@ class _SelahAppState extends State<SelahApp> {
                         .map((reference) => notes[reference]!)
                         .join('\n\n');
                     previewGrowthShare(context, selectedBible, selection,
-                        resolve:
-                            licensedEdition == null ? null : resolveScripture);
+                        resolve: null);
                   }),
               ListTile(
                   leading: const Icon(Icons.menu_book_outlined),
@@ -2249,136 +2141,99 @@ class _SelahAppState extends State<SelahApp> {
       );
 
   Widget verseTile(String verse) => Builder(
-        builder: (context) => licensedEdition != null
-            ? Card(
-                child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ScripturePreview(
-                              reference: verse,
-                              translationId: selectedBible.id,
-                              resolve: resolveScripture,
-                              style: const TextStyle(
-                                  fontFamily: 'SourceSerif4',
-                                  fontSize: 21,
-                                  height: 1.6)),
-                          for (final entry in notes.entries.where(
-                              (entry) => Bible.overlaps(entry.key, verse)))
-                            Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(entry.value)),
-                          TextButton(
-                              onPressed: () {
-                                final parts = verse.split('.');
-                                openChapter(
-                                    bible!.books
-                                        .indexWhere((b) => b.id == parts[0]),
-                                    int.parse(parts[1]) - 1,
-                                    targetVerse: verse);
-                              },
-                              child: const Text('Open in Bible')),
-                        ])))
-            : Padding(
-                key: verseAnchors.putIfAbsent(verse, () => GlobalKey()),
-                padding: const EdgeInsets.only(bottom: 4),
-                child: InkWell(
-                  key: ValueKey('verse-$verse'),
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => showVerseActions(context, verse),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                    decoration: BoxDecoration(
-                      border: verse == focusedVerse ||
-                              (selectedPassage != null &&
-                                  Bible.overlaps(selectedPassage!, verse))
-                          ? Border.all(
-                              color: Theme.of(context).colorScheme.primary,
-                              width: 2)
-                          : null,
-                      color: selectedPassage != null &&
-                              Bible.overlaps(selectedPassage!, verse)
-                          ? Theme.of(context)
-                              .colorScheme
-                              .primaryContainer
-                              .withAlpha(180)
-                          : verseHighlight(verse)?.withAlpha(65),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        builder: (context) => Padding(
+          key: verseAnchors.putIfAbsent(verse, () => GlobalKey()),
+          padding: const EdgeInsets.only(bottom: 4),
+          child: InkWell(
+            key: ValueKey('verse-$verse'),
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => showVerseActions(context, verse),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              decoration: BoxDecoration(
+                border: verse == focusedVerse ||
+                        (selectedPassage != null &&
+                            Bible.overlaps(selectedPassage!, verse))
+                    ? Border.all(
+                        color: Theme.of(context).colorScheme.primary, width: 2)
+                    : null,
+                color: selectedPassage != null &&
+                        Bible.overlaps(selectedPassage!, verse)
+                    ? Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withAlpha(180)
+                    : verseHighlight(verse)?.withAlpha(65),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text.rich(
+                    TextSpan(
                       children: [
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: '${bible!.verse(verse).number}  ',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontFamily: 'sans-serif',
-                                ),
-                              ),
-                              ...scriptureSpans(context, bible!.verse(verse)),
-                              if (bible!
-                                      .verse(verse)
-                                      .readingFormat
-                                      ?.notes
-                                      .isNotEmpty ??
-                                  false)
-                                WidgetSpan(
-                                    alignment: PlaceholderAlignment.middle,
-                                    child: IconButton(
-                                        key: ValueKey(
-                                            'translation-footnotes-$verse'),
-                                        tooltip: 'Translation footnotes',
-                                        iconSize: 17,
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: () =>
-                                            showTranslationFootnotes(verse),
-                                        icon: const Icon(Icons
-                                            .chat_bubble_outline_rounded))),
-                              if (relatedReferences(verse, notes.keys)
-                                  .isNotEmpty)
-                                WidgetSpan(
-                                  alignment: PlaceholderAlignment.middle,
-                                  child: IconButton(
-                                    key: ValueKey('verse-note-$verse'),
-                                    tooltip: 'Open note',
-                                    iconSize: 18,
-                                    visualDensity: VisualDensity.compact,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                    onPressed: () {
-                                      final references =
-                                          relatedReferences(verse, notes.keys);
-                                      if (references.length == 1) {
-                                        annotate(references.first);
-                                      } else {
-                                        showVerseActions(context, verse);
-                                      }
-                                    },
-                                    icon: const Icon(
-                                        Icons.sticky_note_2_outlined),
-                                  ),
-                                ),
-                            ],
-                          ),
+                        TextSpan(
+                          text: '${bible!.verse(verse).number}  ',
                           style: TextStyle(
-                            fontFamily: 'SourceSerif4',
-                            fontSize: fontSize,
-                            height: 1.7,
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.primary,
+                            fontFamily: 'sans-serif',
                           ),
                         ),
-                        if (relatedReferences(verse, saved).isNotEmpty)
-                          const Icon(Icons.bookmark, size: 16),
+                        ...scriptureSpans(context, bible!.verse(verse)),
+                        if (bible!
+                                .verse(verse)
+                                .readingFormat
+                                ?.notes
+                                .isNotEmpty ??
+                            false)
+                          WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: IconButton(
+                                  key: ValueKey('translation-footnotes-$verse'),
+                                  tooltip: 'Translation footnotes',
+                                  iconSize: 17,
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () =>
+                                      showTranslationFootnotes(verse),
+                                  icon: const Icon(
+                                      Icons.chat_bubble_outline_rounded))),
+                        if (relatedReferences(verse, notes.keys).isNotEmpty)
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: IconButton(
+                              key: ValueKey('verse-note-$verse'),
+                              tooltip: 'Open note',
+                              iconSize: 18,
+                              visualDensity: VisualDensity.compact,
+                              color: Theme.of(context).colorScheme.primary,
+                              onPressed: () {
+                                final references =
+                                    relatedReferences(verse, notes.keys);
+                                if (references.length == 1) {
+                                  annotate(references.first);
+                                } else {
+                                  showVerseActions(context, verse);
+                                }
+                              },
+                              icon: const Icon(Icons.sticky_note_2_outlined),
+                            ),
+                          ),
                       ],
                     ),
+                    style: TextStyle(
+                      fontFamily: 'SourceSerif4',
+                      fontSize: fontSize,
+                      height: 1.7,
+                    ),
                   ),
-                ),
+                  if (relatedReferences(verse, saved).isNotEmpty)
+                    const Icon(Icons.bookmark, size: 16),
+                ],
               ),
+            ),
+          ),
+        ),
       );
 
   Widget library(BuildContext context) {

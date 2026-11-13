@@ -4,7 +4,7 @@ import 'package:selah/data/bible.dart';
 import 'package:selah/data/book_categories.dart';
 import 'package:selah/features/reader/passage_picker.dart';
 import 'package:selah/features/common/selah_dialog.dart';
-import 'package:selah/data/licensed_bible.dart';
+import 'package:selah/data/book_names.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -114,8 +114,14 @@ void main() {
             builder: (context) => Scaffold(
                 body: TextButton(
                     onPressed: () => PassagePicker.open(context,
-                        bible:
-                            licensedBibleMetadata(bible, licensedEditions.last),
+                        bible: Bible([
+                          for (var i = 0; i < bible.books.length; i++)
+                            BibleBook(bible.books[i].id, englishBookNames[i],
+                                bible.books[i].chapters)
+                        ], 'New Living Translation',
+                            id: 'nlt',
+                            abbreviation: 'NLT',
+                            language: 'English'),
                         currentBook: 42,
                         currentChapter: 0),
                     child: const Text('Open NLT books'))))));

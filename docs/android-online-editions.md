@@ -1,5 +1,10 @@
 # NIV and NLT on Android
 
+**This online integration was retired in v0.7.0.** Use the
+[offline translation guide](offline-translations.md) for current behavior.
+The remainder of this document describes older releases; its API-key build
+instructions and chapter-expiry rules no longer apply to the current app.
+
 Open Bible translations on the Android release, then choose **Use NIV** or
 **Use NLT** under Online translations. The selected edition opens in the normal
 Bible tab, with Home, Bible, Devotion, Saved and Settings still available. The

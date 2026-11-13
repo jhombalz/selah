@@ -8,15 +8,39 @@ import 'package:http/http.dart' as http;
 import 'bible.dart';
 import 'book_names.dart';
 import 'user_database.dart';
+import 'repository_translation.dart';
 
 class TranslationSpec {
   final String id, title, abbreviation, language, sourceId, textHash, license;
+  final String? jsonSource;
   const TranslationSpec(this.id, this.title, this.abbreviation, this.language,
-      this.sourceId, this.textHash, this.license);
-  String get source => 'https://ebible.org/Scriptures/${sourceId}_vpl.zip';
+      this.sourceId, this.textHash, this.license,
+      {this.jsonSource});
+  String get source =>
+      jsonSource ?? 'https://ebible.org/Scriptures/${sourceId}_vpl.zip';
 }
 
 const translationCatalog = [
+  TranslationSpec(
+      'niv',
+      'New International Version',
+      'NIV',
+      'English',
+      'en_niv',
+      '67899d361785d8b341c05d82e07f39c4d3e0d3b9fb3c5609b73cdefb74a589ab',
+      'New International Version (NIV). Copyright Biblica, Inc. All rights reserved.\nhttps://www.biblica.com/permissions/\nText supplied from the app owner’s repository. Hosting this file does not grant redistribution rights to the translation.',
+      jsonSource:
+          'https://raw.githubusercontent.com/jhombalz/selah_translation/878cdb6aa1dc2764f30b0e6f210cb26574bac799/en_niv.json'),
+  TranslationSpec(
+      'nlt',
+      'New Living Translation',
+      'NLT',
+      'English',
+      'en_nlt',
+      'cab9ee2ff083fd17411a30bebbb47afa02998f1a31be6d0fad844f9153c92829',
+      'Holy Bible, New Living Translation (NLT). Copyright Tyndale House Foundation. All rights reserved.\nhttps://www.tyndale.com/permissions\nText supplied from the app owner’s repository. Hosting this file does not grant redistribution rights to the translation.\n\n$nltRepositoryWarning',
+      jsonSource:
+          'https://raw.githubusercontent.com/jhombalz/selah_translation/878cdb6aa1dc2764f30b0e6f210cb26574bac799/en_nlt.json'),
   TranslationSpec(
       'cebocb',
       'Biblica® Open Ang Pulong sa Dios™',
@@ -77,6 +101,15 @@ const translationCatalog = [
 
 class DownloadCancelled implements Exception {}
 
+Bible _parseRepository((String, Bible, TranslationSpec) input) =>
+    parseRepositoryTranslation(
+        input.$1,
+        input.$2,
+        input.$3.id,
+        input.$3.title,
+        input.$3.abbreviation,
+        '${input.$3.license}\n\nSource: ${input.$3.source}');
+
 class TranslationDownloader {
   final http.Client Function() clientFactory;
   TranslationDownloader({http.Client Function()? clientFactory})
@@ -96,7 +129,7 @@ class TranslationDownloader {
     _cancelled = false;
     final client = _client = clientFactory();
     try {
-      final uri = kIsWeb
+      final uri = kIsWeb && spec.jsonSource == null
           ? Uri.base.resolve('translations/${spec.id}.zip')
           : Uri.parse(spec.source);
       final response = await client
@@ -123,6 +156,18 @@ class TranslationDownloader {
       }
       progress(.88, 'Checking package integrity');
       await Future<void>.delayed(Duration.zero);
+      if (spec.jsonSource != null) {
+        final raw = bytes.takeBytes();
+        if (sha256.convert(raw).toString() != spec.textHash) {
+          throw const FormatException(
+              'The source differs from the verified file. Update the app before downloading.');
+        }
+        progress(.92, 'Validating all 66 books');
+        final result =
+            await compute(_parseRepository, (utf8.decode(raw), bundled, spec));
+        if (_cancelled) throw DownloadCancelled();
+        return result;
+      }
       final archive = ZipDecoder().decodeBytes(bytes.takeBytes(), verify: true);
       final entries = archive.files
           .where((file) => file.name == '${spec.sourceId}_vpl.txt')

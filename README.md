@@ -2,9 +2,17 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.6.4](https://github.com/jhombalz/selah/releases/download/v0.6.4/selah-v0.6.4-android.apk)
+[Download SELAH Android v0.7.0](https://github.com/jhombalz/selah/releases/download/v0.7.0/selah-v0.7.0-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.7.0 replaces API-backed NIV/NLT with one-time offline downloads from
+the owner's translation repository. Select Download NIV/NLT, then Use NIV/NLT.
+Reading, chapter navigation, search and personal annotations work locally, with
+no Bible API key or 30-day API cache expiry. The daily curated reference refreshes
+from an online feed and falls back to the local rotation without internet.
+The supplied NLT file omits table content in Numbers 1–2; these gaps are marked
+in the reader and download card. See [offline translation guide](docs/offline-translations.md).
 
 Version 0.6.4 uses one responsive book/chapter picker for all editions, including
 NIV/NLT. New Testament keeps Gospels and History as separate categories. History

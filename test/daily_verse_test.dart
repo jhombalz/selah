@@ -1,6 +1,9 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:selah/data/bible.dart';
 import 'package:selah/data/daily_verse.dart';
 import 'package:selah/data/user_database.dart';
@@ -83,10 +86,57 @@ void main() {
   });
 
   test('daily verse needs neither internet nor a database', () async {
-    final repository = DailyVerseRepository();
+    final repository = DailyVerseRepository(
+        clientFactory: () =>
+            MockClient((_) async => throw http.ClientException('Offline')));
     addTearDown(repository.dispose);
     final date = DateTime(2026, 11, 13);
     expect((await repository.load(bible, date)).reference,
         dailyVerseReference(bible, date));
+  });
+  test(
+      'Online featured reference is cached for the day without Bible API calls',
+      () async {
+    final db = UserDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    var requests = 0;
+    http.Client client() => MockClient((request) async {
+          requests++;
+          expect(request.url.toString(), DailyVerseRepository.feed);
+          expect(request.headers.containsKey('api-key'), isFalse);
+          return http.Response(
+              jsonEncode({
+                'version': 1,
+                'references': dailyMemoryVerses,
+                'days': {'2026-11-13': 'JHN.3.16'}
+              }),
+              200);
+        });
+    final repository =
+        DailyVerseRepository(database: db, clientFactory: client);
+    final date = DateTime(2026, 11, 13);
+    final result = await repository.load(bible, date);
+    expect(result.reference, 'JHN.3.16');
+    expect(result.online, isTrue);
+    repository.dispose();
+    final reopened = DailyVerseRepository(database: db, clientFactory: client);
+    addTearDown(reopened.dispose);
+    expect((await reopened.load(bible, date)).reference, 'JHN.3.16');
+    expect(requests, 1);
+  });
+  test('An invalid online reference retains the curated offline choice',
+      () async {
+    final repository = DailyVerseRepository(
+        clientFactory: () => MockClient((_) async => http.Response(
+            jsonEncode({
+              'version': 1,
+              'references': ['1CH.1.1']
+            }),
+            200)));
+    addTearDown(repository.dispose);
+    final date = DateTime(2026, 11, 13);
+    final result = await repository.load(bible, date);
+    expect(result.reference, dailyVerseReference(bible, date));
+    expect(result.online, isFalse);
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'bible.dart';
 import 'user_database.dart';
 
@@ -128,20 +130,105 @@ class DailyVerseChoice {
 
 class DailyVerseRepository {
   final UserDatabase? database;
-  DailyVerseRepository({this.database});
+  final http.Client Function() clientFactory;
+  DailyVerseRepository({this.database, http.Client Function()? clientFactory})
+      : clientFactory = clientFactory ?? http.Client.new;
   bool _disposed = false;
-  Future<DailyVerseChoice> load(Bible bible, DateTime date) async {
-    final reference = dailyVerseReference(bible, date);
-    if (!_disposed) {
+  final clients = <http.Client>{};
+  final pending = <String, Future<DailyVerseChoice>>{};
+  final choices = <String, DailyVerseChoice>{};
+  final attempted = <String, DateTime>{};
+  static const feed =
+      'https://raw.githubusercontent.com/jhombalz/selah/main/web/daily-verses.json';
+  Future<DailyVerseChoice> load(Bible bible, DateTime date) {
+    final key = '${dailyVerseDay(date)}:${bible.id}';
+    return pending.putIfAbsent(
+        key,
+        () => _load(bible, date, key).whenComplete(() {
+              pending.remove(key);
+            }));
+  }
+
+  Future<DailyVerseChoice> _load(Bible bible, DateTime date, String key) async {
+    final day = dailyVerseDay(date);
+    var choice =
+        choices[key] ?? DailyVerseChoice(dailyVerseReference(bible, date));
+    try {
+      final cached = await database?.dailyVerse(day);
+      if (cached != null &&
+          cached.online &&
+          dailyMemoryVerses.contains(cached.reference) &&
+          availableDailyReference(bible, cached.reference)) {
+        choice = DailyVerseChoice(cached.reference, online: true);
+      }
+    } catch (_) {/* Offline rotation remains available. */}
+    if (!choice.online &&
+        !_disposed &&
+        (attempted[key] == null ||
+            DateTime.now().difference(attempted[key]!) >=
+                const Duration(minutes: 15))) {
+      attempted[key] = DateTime.now();
+      final client = clientFactory();
+      clients.add(client);
       try {
-        await database?.cacheDailyVerse(dailyVerseDay(date), reference, false);
+        final request = await client
+            .send(http.Request('GET', Uri.parse(feed)))
+            .timeout(const Duration(seconds: 3));
+        if (request.statusCode != 200) {
+          throw const FormatException('Daily feed unavailable');
+        }
+        final bytes = <int>[];
+        await for (final chunk
+            in request.stream.timeout(const Duration(seconds: 3))) {
+          bytes.addAll(chunk);
+          if (bytes.length > 65536) {
+            throw const FormatException('Daily feed too large');
+          }
+        }
+        final data = jsonDecode(utf8.decode(bytes));
+        if (data is! Map || data['version'] != 1 || data['references'] is! List) {
+          throw const FormatException('Invalid daily feed');
+        }
+        final refs = (data['references'] as List).whereType<String>().toList();
+        if (refs.isEmpty ||
+            refs.length > 365 ||
+            refs.toSet().length != refs.length ||
+            refs.any((ref) =>
+                !dailyMemoryVerses.contains(ref) ||
+                !availableDailyReference(bible, ref))) {
+          throw const FormatException('Invalid daily references');
+        }
+        final index = DateTime.utc(date.year, date.month, date.day)
+            .difference(DateTime.utc(2026, 1, 1))
+            .inDays;
+        final featured = data['days'] is Map ? data['days'][day] : null;
+        final reference = featured is String && refs.contains(featured)
+            ? featured
+            : refs[index % refs.length];
+        choice = DailyVerseChoice(reference, online: true);
+      } catch (_) {
+        /* Network failure retains the curated local passage. */
+      } finally {
+        clients.remove(client);
+        client.close();
+      }
+    }
+    if (!_disposed) {
+      choices[key] = choice;
+      try {
+        await database?.cacheDailyVerse(day, choice.reference, choice.online);
       } catch (_) {
         /* Daily Scripture still works if the cache cannot be written. */
       }
     }
-    // Replace legacy unrestricted random choices, including today's old cache.
-    return DailyVerseChoice(reference);
+    return choice;
   }
 
-  void dispose() => _disposed = true;
+  void dispose() {
+    _disposed = true;
+    for (final client in clients.toList()) {
+      client.close();
+    }
+    clients.clear();
+  }
 }
