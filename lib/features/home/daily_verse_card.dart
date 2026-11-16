@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/bible.dart';
 import '../../data/daily_verse.dart';
+import '../../data/growth_entry.dart';
+import '../growth/growth_share.dart';
 import '../reader/scripture_preview.dart';
 
 class DailyVerseCard extends StatefulWidget {
@@ -128,10 +130,24 @@ class _DailyVerseCardState extends State<DailyVerseCard>
                   '${displayed.reference(actualReference)} · ${displayed.abbreviation}',
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
-              TextButton.icon(
-                  onPressed: () => widget.onOpen(actualReference),
-                  icon: const Icon(Icons.menu_book_outlined),
-                  label: const Text('Read in context')),
+              Wrap(spacing: 8, runSpacing: 4, children: [
+                TextButton.icon(
+                    onPressed: () => widget.onOpen(actualReference),
+                    icon: const Icon(Icons.menu_book_outlined),
+                    label: const Text('Read in context')),
+                TextButton.icon(
+                    onPressed: () => previewGrowthShare(
+                        context,
+                        displayed,
+                        GrowthEntry.create(
+                            kind: 'session',
+                            title: 'Verse of the Day',
+                            translation: displayed.id,
+                            reference: actualReference),
+                        resolve: widget.resolve),
+                    icon: const Icon(Icons.ios_share_rounded),
+                    label: const Text('Share')),
+              ]),
             ])));
   }
 }

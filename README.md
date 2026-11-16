@@ -6,6 +6,11 @@ Pause. Reflect. Grow.
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
 
+Version 0.7.4 adds **Share** beside Read in context on the daily verse card.
+The shared preview includes the displayed passage, reference, translation and
+source attribution, with native sharing and Copy as a browser fallback.
+The Pages deployment also includes the Filipino-voice TTS fallback described below.
+
 Version 0.7.3 adds NLT text-to-speech using the selected downloaded chapter
 and an English device/browser voice. Play, pause/resume and automatic chapter
 continuation use the shared audio controls. Pause resumes the current short

@@ -23,6 +23,36 @@ void main() {
   late Bible bible;
   setUpAll(() async => bible = await Bible.load());
 
+  testWidgets(
+      'Daily verse shares the displayed edition and passage in the shared preview',
+      (tester) async {
+    final repository = CountingDailyVerses();
+    final selected = Bible(bible.books, 'Selected Bible',
+        id: 'test',
+        abbreviation: 'TEST',
+        licenseText: 'Selected source attribution');
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: SingleChildScrollView(
+                child: DailyVerseCard(
+                    bible: bible,
+                    selectedBible: selected,
+                    repository: repository,
+                    onOpen: (_) {})))));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Share'));
+    await tester.tap(find.text('Share'));
+    await tester.pumpAndSettle();
+    expect(find.text('Share a little light'), findsOneWidget);
+    expect(find.textContaining(selected.verse('GEN.1.1').text), findsWidgets);
+    expect(find.textContaining('TEST'), findsWidgets);
+    expect(find.textContaining('Selected source attribution'), findsWidgets);
+    expect(find.text('Copy'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    repository.dispose();
+  });
+
   testWidgets('daily verse retries stop while the app is in the background',
       (tester) async {
     final repository = CountingDailyVerses();
