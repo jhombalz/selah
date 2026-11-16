@@ -102,6 +102,13 @@ class DeviceSpeechBackend implements ChapterAudioBackend {
   int cursor = 0, generation = 0;
   int wordOffset = 0;
   bool disposed = false;
+  double speed = 1;
+  Future<void> setSpeed(double value) async {
+    speed = value.clamp(.75, 1.5);
+    // Android's plugin maps 0.5 to normal; Web Speech uses 1.0 directly.
+    await tts.setSpeechRate(kIsWeb ? speed : speed / 2);
+  }
+
   @override
   Stream<AudioSignal> get signals => events.stream;
   void emit(AudioSignal signal) {
@@ -138,7 +145,7 @@ class DeviceSpeechBackend implements ChapterAudioBackend {
     if (!ready) {
       throw StateError('Requested speech voice unavailable');
     }
-    await tts.setSpeechRate(.45);
+    await setSpeed(speed);
   }
 
   @override
@@ -268,6 +275,7 @@ class StreamingAudioBackend implements ChapterAudioBackend {
 /// Manual chapter/edition changes invalidate pending loads. Natural completion
 /// can request continuation from the reader's canonical chapter order.
 class ChapterAudioController extends ChangeNotifier {
+  double speechSpeed = 1;
   void Function(String scope)? onCompleted;
   final ChapterAudioBackend Function() backendFactory;
   final ChapterAudioBackend Function() speechBackendFactory;
@@ -419,6 +427,10 @@ class ChapterAudioController extends ChangeNotifier {
     _emit();
     try {
       await _stopping;
+      if (usesSpeech(translation) && backend is DeviceSpeechBackend) {
+        await (backend as DeviceSpeechBackend).setSpeed(speechSpeed);
+        if (_disposed || generation != _generation) return;
+      }
       final catalog =
           usesSpeech(translation) ? null : await (_catalog ??= catalogLoader());
       if (_disposed || generation != _generation) return;

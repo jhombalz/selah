@@ -572,6 +572,9 @@ class _SelahAppState extends State<SelahApp> {
     history = data.history;
     dark = data.preferences['dark'] == 'true';
     followAudio = data.preferences['audioFollow'] != 'false';
+    final savedSpeed = double.tryParse(data.preferences['speechSpeed'] ?? '');
+    chapterAudio.speechSpeed =
+        [.75, 1.0, 1.25, 1.5].contains(savedSpeed) ? savedSpeed! : 1;
     paragraphs = data.preferences['paragraphs'] == 'true';
     redLetters = data.preferences['redLetters'] != 'false';
     fontSize = (double.tryParse(data.preferences['fontSize'] ?? '') ?? 21)
@@ -1493,6 +1496,10 @@ class _SelahAppState extends State<SelahApp> {
           fontSize: fontSize,
           paragraphs: paragraphs,
           redLetters: redLetters,
+          speechSpeed: chapterAudio.speechSpeed,
+          onSpeechSpeed: ChapterAudioController.usesSpeech(bible!.id)
+              ? (value) => unawaited(changeSpeechSpeed(value))
+              : null,
           onSize: (value, persist) {
             setState(() => fontSize = value);
             if (persist) updatePreference('fontSize', '$value', () {});
@@ -1516,6 +1523,28 @@ class _SelahAppState extends State<SelahApp> {
       : null;
 
   bool filipinoVoiceAccepted = false;
+  Future<void> changeSpeechSpeed(double value) async {
+    final scope = chapterAudio.scope;
+    final wasPlaying = chapterAudio.playing;
+    final edition = bible!.id;
+    final book = bookIndex, chapter = chapterIndex;
+    chapterAudio.speechSpeed = value;
+    save(() => database.setPreferences({'speechSpeed': '$value'}));
+    if (wasPlaying && ChapterAudioController.usesSpeech(edition)) {
+      await chapterAudio.toggle(edition, bible!.books[book].id, chapter + 1,
+          chapterText: speechChapterText(book, chapter));
+      if (!mounted ||
+          scope != chapterAudio.scope ||
+          bible!.id != edition ||
+          bookIndex != book ||
+          chapterIndex != chapter) {
+        return;
+      }
+      await chapterAudio.toggle(edition, bible!.books[book].id, chapter + 1,
+          chapterText: speechChapterText(book, chapter));
+    }
+  }
+
   bool speechNoticeOpen = false;
   Future<void> toggleReaderAudio() async {
     final edition = bible!.id;

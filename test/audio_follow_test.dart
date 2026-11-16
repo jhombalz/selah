@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:selah/data/bible.dart';
+import 'package:selah/data/user_backup.dart';
 import 'package:selah/data/user_database.dart';
 import 'package:selah/features/audio/chapter_audio.dart';
 import 'package:selah/main.dart';
@@ -15,6 +16,40 @@ void main() {
     final bundled = await Bible.load();
     bible = Bible(bundled.books, 'Test WEB', id: 'web', abbreviation: 'WEB');
     catalog = await RecordedAudioCatalog.load();
+  });
+
+  testWidgets('TTS speed restores, changes during playback and persists',
+      (tester) async {
+    final db = UserDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final backend = FakeAudioBackend();
+    final audio = ChapterAudioController(speechBackendFactory: () => backend);
+    await tester.pumpWidget(SelahApp(
+        initialBible:
+            Bible(bible.books, 'Test NLT', id: 'nlt', abbreviation: 'NLT'),
+        database: db,
+        audioController: audio,
+        initialData: const UserData(preferences: {'speechSpeed': '1.25'})));
+    expect(audio.speechSpeed, 1.25);
+    await tester.tap(find.text('Continue Reading'));
+    await tester.runAsync(db.load);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chapter-audio')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('AA'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('1.5×'));
+    await tester.tap(find.text('1.5×'));
+    await tester.runAsync(db.load);
+    await tester.pumpAndSettle();
+    expect(audio.speechSpeed, 1.5);
+    expect(audio.playing, isTrue);
+    expect(backend.pauses, 1);
+    expect((await tester.runAsync(db.load))!.preferences['speechSpeed'], '1.5');
+    final backup = UserBackup.create((await tester.runAsync(db.load))!, bible);
+    expect(backup.data.preferences['speechSpeed'], '1.5');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   });
 
   test('Playback progress cannot resume paused audio and is cleared on stop',

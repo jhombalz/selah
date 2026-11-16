@@ -7,6 +7,28 @@ import 'package:selah/features/audio/chapter_audio.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('flutter_tts');
+  test('Normal speech defaults to native 1x and faster speed maps correctly',
+      () async {
+    final rates = <double>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'setSpeechRate') rates.add(call.arguments as double);
+      return 1;
+    });
+    final backend = DeviceSpeechBackend();
+    try {
+      await backend.load(Uri.dataFromString('Normal reading speed.'));
+      expect(rates.last, .5);
+      await backend.setSpeed(1.25);
+      expect(rates.last, .625);
+      await backend.setSpeed(1.5);
+      expect(rates.last, .75);
+    } finally {
+      await backend.dispose();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    }
+  });
   test(
       'Word progress updates within speech; pause stops immediately and resumes at the paused word',
       () async {

@@ -123,6 +123,10 @@ class UserBackup {
               number > 32) {
             throw const FormatException('Invalid text size.');
           }
+        case 'speechSpeed':
+          if (![.75, 1.0, 1.25, 1.5].contains(double.tryParse(value))) {
+            throw const FormatException('Invalid speech speed.');
+          }
         case 'scrollOffset':
           final number = double.tryParse(value);
           if (number == null ||

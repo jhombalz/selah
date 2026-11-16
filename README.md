@@ -2,9 +2,14 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.7.5](https://github.com/jhombalz/selah/releases/download/v0.7.5/selah-v0.7.5-android.apk)
+[Download SELAH Android v0.7.6](https://github.com/jhombalz/selah/releases/download/v0.7.6/selah-v0.7.6-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.7.6 sets TTS to normal 1× speed on Android and web. Open **AA →
+Reading preferences → Text-to-speech speed** to select 0.75×, 1×, 1.25× or
+1.5×. The selected rate is saved locally and included in backups. Changing
+speed during speech resumes near the current word where the voice supports it.
 
 Version 0.7.5 fixes TTS pause state and supplies word-progress updates for
 auto-scroll. Late speech events cannot undo a pause. Resume starts near the

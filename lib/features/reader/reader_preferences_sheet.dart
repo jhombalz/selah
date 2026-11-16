@@ -7,6 +7,8 @@ class ReaderPreferencesSheet extends StatefulWidget {
   final ValueChanged<bool> onParagraphs, onRedLetters;
   final bool showFormatting;
   final List<Widget> extraActions;
+  final double speechSpeed;
+  final ValueChanged<double>? onSpeechSpeed;
   const ReaderPreferencesSheet(
       {super.key,
       required this.fontSize,
@@ -16,6 +18,8 @@ class ReaderPreferencesSheet extends StatefulWidget {
       required this.onParagraphs,
       required this.onRedLetters,
       this.showFormatting = true,
+      this.speechSpeed = 1,
+      this.onSpeechSpeed,
       this.extraActions = const []});
   @override
   State<ReaderPreferencesSheet> createState() => _ReaderPreferencesSheetState();
@@ -23,6 +27,7 @@ class ReaderPreferencesSheet extends StatefulWidget {
 
 class _ReaderPreferencesSheetState extends State<ReaderPreferencesSheet> {
   late double size = widget.fontSize;
+  late double speechSpeed = widget.speechSpeed;
   late bool paragraphs = widget.paragraphs, red = widget.redLetters;
   void change(double value, {bool persist = true}) {
     setState(() => size = value.clamp(16, 32));
@@ -102,6 +107,24 @@ class _ReaderPreferencesSheetState extends State<ReaderPreferencesSheet> {
                               setState(() => red = value);
                               widget.onRedLetters(value);
                             }),
+                      if (widget.onSpeechSpeed != null) ...[
+                        const Divider(),
+                        const ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.speed_rounded),
+                            title: Text('Text-to-speech speed'),
+                            subtitle: Text('1× is normal reading speed.')),
+                        Wrap(spacing: 8, runSpacing: 8, children: [
+                          for (final speed in [.75, 1.0, 1.25, 1.5])
+                            ChoiceChip(
+                                label: Text('${speed == 1 ? '1' : speed}×'),
+                                selected: speechSpeed == speed,
+                                onSelected: (_) {
+                                  setState(() => speechSpeed = speed);
+                                  widget.onSpeechSpeed!(speed);
+                                }),
+                        ]),
+                      ],
                       ...widget.extraActions,
                     ])))),
       ]));
