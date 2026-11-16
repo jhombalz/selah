@@ -93,13 +93,14 @@ abstract class ChapterAudioBackend {
 }
 
 /// Speak bounded chunks so Android input limits cannot truncate long chapters.
-/// Pausing stops the current chunk; resuming repeats that short chunk.
+/// Word-boundary progress drives following and resumes near the paused word.
 class DeviceSpeechBackend implements ChapterAudioBackend {
   final FlutterTts tts;
   final events = StreamController<AudioSignal>.broadcast();
   DeviceSpeechBackend({FlutterTts? engine}) : tts = engine ?? FlutterTts();
   List<String> chunks = [];
   int cursor = 0, generation = 0;
+  int wordOffset = 0;
   bool disposed = false;
   @override
   Stream<AudioSignal> get signals => events.stream;
@@ -126,6 +127,7 @@ class DeviceSpeechBackend implements ChapterAudioBackend {
   Future<void> load(Uri url) async {
     chunks = splitText(url.data!.contentAsString());
     cursor = 0;
+    wordOffset = 0;
     if (chunks.isEmpty) throw StateError('No chapter text');
     await tts.awaitSpeakCompletion(true);
     final language = url.data!.parameters['language'] ?? 'en-US';
@@ -143,17 +145,29 @@ class DeviceSpeechBackend implements ChapterAudioBackend {
   Future<void> play() async {
     final run = ++generation;
     while (!disposed && run == generation && cursor < chunks.length) {
+      final chunk = chunks[cursor];
+      final offset = wordOffset.clamp(0, chunk.length);
+      final spoken = chunk.substring(offset);
+      final preceding =
+          chunks.take(cursor).fold<int>(0, (n, s) => n + s.length);
+      final total = chunks.fold<int>(0, (n, s) => n + s.length);
+      tts.setProgressHandler((text, start, end, word) {
+        if (disposed || run != generation || text != spoken) return;
+        wordOffset = (offset + start).clamp(0, chunk.length);
+        emit(AudioSignal(
+            progressOnly: true,
+            position: Duration(milliseconds: preceding + wordOffset),
+            duration: Duration(milliseconds: total)));
+      });
       emit(AudioSignal(
-          playing: true,
-          position: Duration(
-              milliseconds:
-                  chunks.take(cursor).fold<int>(0, (n, s) => n + s.length)),
-          duration: Duration(
-              milliseconds: chunks.fold<int>(0, (n, s) => n + s.length))));
-      final result = await tts.speak(chunks[cursor]);
+          progressOnly: true,
+          position: Duration(milliseconds: preceding + offset),
+          duration: Duration(milliseconds: total)));
+      final result = await tts.speak(spoken);
       if (disposed || run != generation) return;
       if (result != 1) throw StateError('Speech playback failed');
       cursor++;
+      wordOffset = 0;
     }
     if (!disposed && run == generation) {
       emit(const AudioSignal(completed: true));
@@ -175,6 +189,7 @@ class DeviceSpeechBackend implements ChapterAudioBackend {
   Future<void> stop() async {
     generation++;
     cursor = 0;
+    wordOffset = 0;
     await tts.stop();
   }
 
@@ -387,6 +402,7 @@ class ChapterAudioController extends ChangeNotifier {
     if (_disposed) return;
     if (playing) {
       final generation = _generation;
+      _acceptSignals = false;
       status = ChapterAudioStatus.paused;
       _emit();
       try {

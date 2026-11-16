@@ -78,7 +78,8 @@ void main() {
       expect(audio.scope, expected);
       expect(audio.playing, isTrue);
     }
-    expect(find.textContaining('Next book', findRichText: true), findsOneWidget);
+    expect(
+        find.textContaining('Next book', findRichText: true), findsOneWidget);
     backend.events.add(const AudioSignal(completed: true));
     await tester.pumpAndSettle();
     expect(audio.status, ChapterAudioStatus.idle);
@@ -87,72 +88,79 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets(
-      'Playback scrolls Scripture, manual scrolling suspends it, and resume follows again',
-      (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final db = UserDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    final backend = FakeAudioBackend();
-    final audio = ChapterAudioController(
-        backendFactory: () => backend, catalogLoader: () async => catalog);
-    await tester.pumpWidget(SelahApp(
-        initialBible: bible,
-        database: db,
-        audioController: audio,
-        initialData: const UserData()));
-    await tester.tap(find.text('Continue Reading'));
-    await tester.runAsync(db.load);
-    await tester.pumpAndSettle();
-    final scroll = tester
-        .widget<SingleChildScrollView>(find.byType(SingleChildScrollView).first)
-        .controller!;
-    await tester.tap(find.byKey(const ValueKey('chapter-audio')));
-    await tester.pumpAndSettle();
-    expect(audio.playing, isTrue);
-    backend.events.add(const AudioSignal(
-        progressOnly: true,
-        position: Duration(seconds: 30),
-        duration: Duration(seconds: 100)));
-    await tester.pump();
-    await tester.pumpAndSettle();
-    expect(scroll.offset, greaterThan(100));
-    await tester.drag(
-        find.byType(SingleChildScrollView).first, const Offset(0, -120));
-    await tester.pumpAndSettle();
-    expect(find.text('Resume auto-scroll'), findsOneWidget);
-    final manual = scroll.offset;
-    backend.events.add(const AudioSignal(
-        progressOnly: true,
-        position: Duration(seconds: 70),
-        duration: Duration(seconds: 100)));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(scroll.offset, closeTo(manual, 1));
-    await tester.tap(find.text('Resume auto-scroll'));
-    await tester.pump();
-    await tester.pumpAndSettle();
-    expect(scroll.offset, greaterThan(manual));
-    await tester.tap(find.text('Auto-scroll on'));
-    await tester.runAsync(db.load);
-    await tester.pumpAndSettle();
-    expect(find.text('Auto-scroll off'), findsOneWidget);
-    final disabled = scroll.offset;
-    backend.events.add(const AudioSignal(
-        progressOnly: true,
-        position: Duration(seconds: 90),
-        duration: Duration(seconds: 100)));
-    await tester.pumpAndSettle();
-    expect(scroll.offset, closeTo(disabled, 1));
-    expect(
-        (await tester.runAsync(db.load))!.preferences['audioFollow'], 'false');
-    await tester.runAsync(db.load);
-    await tester.pumpAndSettle();
-    expect((await tester.runAsync(db.load))!.history.single.completed, isFalse);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
-  });
+  for (final edition in ['web', 'nlt']) {
+    testWidgets(
+        '$edition playback scrolls Scripture, manual scrolling suspends it, and resume follows again',
+        (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final db = UserDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final backend = FakeAudioBackend();
+      final audio = ChapterAudioController(
+          backendFactory: () => backend,
+          speechBackendFactory: () => backend,
+          catalogLoader: () async => catalog);
+      await tester.pumpWidget(SelahApp(
+          initialBible: Bible(bible.books, 'Test edition',
+              id: edition, abbreviation: edition.toUpperCase()),
+          database: db,
+          audioController: audio,
+          initialData: const UserData()));
+      await tester.tap(find.text('Continue Reading'));
+      await tester.runAsync(db.load);
+      await tester.pumpAndSettle();
+      final scroll = tester
+          .widget<SingleChildScrollView>(
+              find.byType(SingleChildScrollView).first)
+          .controller!;
+      await tester.tap(find.byKey(const ValueKey('chapter-audio')));
+      await tester.pumpAndSettle();
+      expect(audio.playing, isTrue);
+      backend.events.add(const AudioSignal(
+          progressOnly: true,
+          position: Duration(seconds: 30),
+          duration: Duration(seconds: 100)));
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(100));
+      await tester.drag(
+          find.byType(SingleChildScrollView).first, const Offset(0, -120));
+      await tester.pumpAndSettle();
+      expect(find.text('Resume auto-scroll'), findsOneWidget);
+      final manual = scroll.offset;
+      backend.events.add(const AudioSignal(
+          progressOnly: true,
+          position: Duration(seconds: 70),
+          duration: Duration(seconds: 100)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(scroll.offset, closeTo(manual, 1));
+      await tester.tap(find.text('Resume auto-scroll'));
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(manual));
+      await tester.tap(find.text('Auto-scroll on'));
+      await tester.runAsync(db.load);
+      await tester.pumpAndSettle();
+      expect(find.text('Auto-scroll off'), findsOneWidget);
+      final disabled = scroll.offset;
+      backend.events.add(const AudioSignal(
+          progressOnly: true,
+          position: Duration(seconds: 90),
+          duration: Duration(seconds: 100)));
+      await tester.pumpAndSettle();
+      expect(scroll.offset, closeTo(disabled, 1));
+      expect((await tester.runAsync(db.load))!.preferences['audioFollow'],
+          'false');
+      await tester.runAsync(db.load);
+      await tester.pumpAndSettle();
+      expect(
+          (await tester.runAsync(db.load))!.history.single.completed, isFalse);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 }

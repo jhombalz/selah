@@ -412,7 +412,7 @@ class _SelahAppState extends State<SelahApp> {
               title: const Text('Bible audio'),
               content: SingleChildScrollView(
                   child: SelectableText(
-                      'NLT uses an English text-to-speech voice. MBBCEB99 and Open APD/OCCB can use a Filipino/Tagalog voice to read the Cebuano text; pronunciation may be inaccurate. All speech uses the selected chapter text. A matching device/browser voice is required; offline speech depends on an installed offline voice. Pausing resumes from the start of the current short text segment. Speech may stop when the browser or app is suspended.\n\nRecorded narration is available for WEB and BSB and requires an internet connection.\n\n${[
+                      'NLT uses an English text-to-speech voice. MBBCEB99 and Open APD/OCCB can use a Filipino/Tagalog voice to read the Cebuano text; pronunciation may be inaccurate. All speech uses the selected chapter text. A matching device/browser voice is required; offline speech depends on an installed offline voice. Resume starts near the paused word when the voice supports progress, otherwise the current segment repeats. Auto-scroll follows speech progress; manual scrolling suspends following. Speech may stop when the browser or app is suspended.\n\nRecorded narration is available for WEB and BSB and requires an internet connection.\n\n${[
                 catalog,
                 ...catalog.alternatives.values
               ].map((edition) => '${edition.translation.toUpperCase()} · ${edition.narrator}\n${edition.editionNote}\n${edition.license}\nSource: ${edition.source}').join('\n\n')}')),

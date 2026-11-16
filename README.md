@@ -2,9 +2,15 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.7.3](https://github.com/jhombalz/selah/releases/download/v0.7.3/selah-v0.7.3-android.apk)
+[Download SELAH Android v0.7.5](https://github.com/jhombalz/selah/releases/download/v0.7.5/selah-v0.7.5-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.7.5 fixes TTS pause state and supplies word-progress updates for
+auto-scroll. Late speech events cannot undo a pause. Resume starts near the
+paused word when the voice engine supplies progress; otherwise the current
+segment repeats. Manual scrolling still suspends following until Resume
+auto-scroll is selected.
 
 Version 0.7.4 adds **Share** beside Read in context on the daily verse card.
 The shared preview includes the displayed passage, reference, translation and
@@ -13,8 +19,7 @@ The Pages deployment also includes the Filipino-voice TTS fallback described bel
 
 Version 0.7.3 adds NLT text-to-speech using the selected downloaded chapter
 and an English device/browser voice. Play, pause/resume and automatic chapter
-continuation use the shared audio controls. Pause resumes the current short
-text segment. Offline speech requires an installed offline voice; background
+continuation use the shared audio controls. Offline speech requires an installed offline voice; background
 speech depends on the device/browser and is not guaranteed. No speech API key
 or SELAH speech backend is used. WEB/BSB recorded narration is unchanged.
 

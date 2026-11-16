@@ -51,6 +51,16 @@ void main() {
   late RecordedAudioCatalog catalog;
   setUpAll(() async => catalog = await RecordedAudioCatalog.load());
 
+  test('Late TTS playback events cannot undo a pause', () async {
+    final speech = FakeAudioBackend();
+    final audio = ChapterAudioController(speechBackendFactory: () => speech);
+    addTearDown(audio.dispose);
+    await audio.toggle('nlt', 'GEN', 1, chapterText: 'Chapter text');
+    await audio.toggle('nlt', 'GEN', 1, chapterText: 'Chapter text');
+    speech.events.add(const AudioSignal(playing: true));
+    expect(audio.status, ChapterAudioStatus.paused);
+  });
+
   for (final edition in ['mbbceb99', 'cebocb']) {
     test('$edition uses Filipino speech with the original Cebuano text',
         () async {
