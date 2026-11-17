@@ -2,9 +2,24 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.7.7](https://github.com/jhombalz/selah/releases/download/v0.7.7/selah-v0.7.7-android.apk)
+[Download SELAH Android v0.7.8](https://github.com/jhombalz/selah/releases/download/v0.7.8/selah-v0.7.8-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.7.8 replaces the single-track background adapter with a chapter-aware
+Android media handler. Notification and lock-screen controls provide previous
+chapter, play/pause and next chapter. Natural completion advances the reader
+and recording together; each recording starts at zero with repeat disabled.
+Late events from an old recording cannot advance or replay the current chapter.
+Previous/next controls respect Bible boundaries. A notification chapter skip
+starts playback of the selected chapter.
+
+The Tagalog download is now **Magandang Balita Biblia (2005), MBB05**. Download
+MBB05, then choose Use MBB05. All 66 selected books read/search offline after
+the one-time 2.4 MB download. The New Testament streams the TGLMBB recordings
+from Internet Archive; the Old Testament uses Filipino device TTS. Previously
+installed ULB remains listed as a previous edition to preserve access and notes.
+See [Tagalog source and import details](docs/tagalog-mbb05.md).
 
 Version 0.7.7 streams MBBCEB99 New Testament recordings from the Internet Archive
 `cebuanobiblemp3` collection (CEBRPV, attributed to Faith Comes By Hearing).

@@ -219,8 +219,9 @@ class _TranslationsPageState extends State<TranslationsPage> {
                         child: const Text('Refresh installed translations')),
                     const SizedBox(height: 12)
                   ],
-                  for (final spec in translationCatalog.where(
-                      (spec) => language == 'All' || spec.language == language))
+                  for (final spec in translationCatalog.where((spec) =>
+                      (!spec.retired || installed.contains(spec.id)) &&
+                      (language == 'All' || spec.language == language)))
                     Card(
                         child: Padding(
                             padding: const EdgeInsets.all(20),
@@ -232,6 +233,9 @@ class _TranslationsPageState extends State<TranslationsPage> {
                                           .textTheme
                                           .titleLarge),
                                   const SizedBox(height: 6),
+                                  if (spec.retired)
+                                    const Text(
+                                        'Previous Tagalog edition · retained from your earlier download'),
                                   if (spec.id == 'nlt')
                                     const Padding(
                                         padding: EdgeInsets.only(bottom: 8),
@@ -244,6 +248,9 @@ class _TranslationsPageState extends State<TranslationsPage> {
                                         padding: EdgeInsets.only(top: 8),
                                         child: Text(
                                             'Recorded narration available online')),
+                                  if (spec.id == 'mbb05' || spec.id == 'mbbceb99')
+                                    const Padding(padding: EdgeInsets.only(top: 8),
+                                        child: Text('New Testament: recorded audio online\nOld Testament: device text-to-speech')),
                                   if (spec.id == 'tglulb')
                                     const Padding(
                                         padding: EdgeInsets.only(top: 8),

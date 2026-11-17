@@ -10,22 +10,40 @@ import 'book_names.dart';
 import 'user_database.dart';
 import 'repository_translation.dart';
 import 'xml_translation.dart';
+import 'sqlite_translation.dart';
 
 class TranslationSpec {
   final String id, title, abbreviation, language, sourceId, textHash, license;
   final String? jsonSource;
   final String? xmlSource;
+  final String? sqliteSource;
+  final bool retired;
   const TranslationSpec(this.id, this.title, this.abbreviation, this.language,
       this.sourceId, this.textHash, this.license,
-      {this.jsonSource, this.xmlSource});
-  bool get isRepository => jsonSource != null || xmlSource != null;
+      {this.jsonSource,
+      this.xmlSource,
+      this.sqliteSource,
+      this.retired = false});
+  bool get isRepository =>
+      jsonSource != null || xmlSource != null || sqliteSource != null;
   String get source =>
+      sqliteSource ??
       xmlSource ??
       jsonSource ??
       'https://ebible.org/Scriptures/${sourceId}_vpl.zip';
 }
 
 const translationCatalog = [
+  TranslationSpec(
+      'mbb05',
+      'Magandang Balita Biblia (2005)',
+      'MBB05',
+      'Tagalog',
+      'MBB05_fil',
+      '440b628b0df0cf160820750242ad288680a388413a437373c9dcd860da6f24f1',
+      'Magandang Balita Biblia (2005) © 2005 Philippine Bible Society. All rights reserved.\nhttps://www.bible.com/versions/144\nSource: develop4God/bible_versions, MBB05_fil.SQLite3.gz. Repository code licensing does not license the Bible text.\nThis download selects the same 66-book canon used by SELAH; additional books in the source are excluded. Footnote link markers and formatting tags are omitted; Scripture words and merged ranges are preserved.',
+      sqliteSource:
+          'https://raw.githubusercontent.com/develop4God/bible_versions/6abc60ede9177e6cbbdb1842b785e4edb1cafbec/fil/MBB05_fil.SQLite3.gz'),
   TranslationSpec(
       'mbbceb99',
       'Maayong Balita Biblia (1999)',
@@ -87,7 +105,8 @@ const translationCatalog = [
       'Tagalog',
       'tglulb',
       '8410580c8ce8804e5eaf6246b1cc5c1e63956d48590c34659e1c369575ecdf6c',
-      'Tagalog Unlocked Literal Bible · © 2018 Door43 World Missions Community.\nCC BY-SA 4.0 · https://creativecommons.org/licenses/by-sa/4.0/\nFull contributor credits and source: https://ebible.org/tglulb/copyright.htm\nThe text is unchanged; source formatting, footnotes and headings are omitted.'),
+      'Tagalog Unlocked Literal Bible · © 2018 Door43 World Missions Community.\nCC BY-SA 4.0 · https://creativecommons.org/licenses/by-sa/4.0/\nFull contributor credits and source: https://ebible.org/tglulb/copyright.htm\nThe text is unchanged; source formatting, footnotes and headings are omitted.',
+      retired: true),
   TranslationSpec(
       'asv',
       'American Standard Version (1901)',
@@ -187,8 +206,15 @@ class TranslationDownloader {
               'The source differs from the verified file. Update the app before downloading.');
         }
         progress(.92, 'Validating all 66 books');
-        final result =
-            await compute(_parseRepository, (utf8.decode(raw), bundled, spec));
+        final result = spec.sqliteSource != null
+            ? await compute(parseSqliteTranslation, (
+                raw,
+                bundled,
+                spec.id,
+                '${spec.license}\n\nSource: ${spec.source}'
+              ))
+            : await compute(
+                _parseRepository, (utf8.decode(raw), bundled, spec));
         if (_cancelled) throw DownloadCancelled();
         return result;
       }

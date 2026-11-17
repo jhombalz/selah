@@ -106,7 +106,7 @@ void main() {
     expect(audio.status, ChapterAudioStatus.paused);
   });
 
-  for (final edition in ['mbbceb99', 'cebocb']) {
+  for (final edition in ['mbbceb99', 'cebocb', 'mbb05']) {
     test('$edition uses Filipino speech with the original Cebuano text',
         () async {
       final speech = FakeAudioBackend();
@@ -124,6 +124,26 @@ void main() {
       expect(audio.status, ChapterAudioStatus.paused);
     });
   }
+
+  test('Tagalog MBB05 has its own recordings and never substitutes ULB audio',
+      () async {
+    final bible = await Bible.load();
+    expect(catalog.alternatives['mbb05']!.chapters.length, 260);
+    for (final book in bible.books.skip(39)) {
+      for (var c = 1; c <= book.chapters.length; c++) {
+        expect(catalog.chapter('mbb05', book.id, c)!.path,
+            contains('N2TGLMBB.mp3'));
+      }
+    }
+    final recording = FakeAudioBackend();
+    final audio = ChapterAudioController(
+        backendFactory: () => recording, catalogLoader: () async => catalog);
+    addTearDown(audio.dispose);
+    await audio.toggle('mbb05', 'MAT', 2);
+    expect(recording.loads.single.path,
+        '/download/tagalogbibleaudio/B01___02_Matthew_______N2TGLMBB.mp3');
+    expect(catalog.chapter('tglulb', 'MAT', 2), isNull);
+  });
 
   test(
       'NLT speaks selected text without a recording request and stops on edition change',

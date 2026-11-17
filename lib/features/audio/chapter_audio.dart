@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../data/book_names.dart';
@@ -20,7 +19,7 @@ class RecordedAudioCatalog {
       {this.translation = 'web', this.alternatives = const {}});
   static Future<RecordedAudioCatalog> load() async {
     final editions = <String, RecordedAudioCatalog>{};
-    for (final id in ['web', 'bsb', 'mbbceb99']) {
+    for (final id in ['web', 'bsb', 'mbbceb99', 'mbb05']) {
       editions[id] = RecordedAudioCatalog.fromJson(
           jsonDecode(await rootBundle.loadString('assets/audio/$id.json'))
               as Map<String, dynamic>);
@@ -30,7 +29,8 @@ class RecordedAudioCatalog {
         web.chapters, web.narrator, web.source, web.license, web.editionNote,
         alternatives: {
           'bsb': editions['bsb']!,
-          'mbbceb99': editions['mbbceb99']!
+          'mbbceb99': editions['mbbceb99']!,
+          'mbb05': editions['mbb05']!
         });
   }
 
@@ -38,7 +38,8 @@ class RecordedAudioCatalog {
     final translation = json['translation'] as String;
     if (translation != 'web' &&
         translation != 'bsb' &&
-        translation != 'mbbceb99') {
+        translation != 'mbbceb99' &&
+        translation != 'mbb05') {
       throw const FormatException('Unexpected audio edition.');
     }
     final chapters = <String, Uri>{};
@@ -49,7 +50,7 @@ class RecordedAudioCatalog {
           uri.host !=
               (translation == 'web'
                   ? 'www.publicdomainaudiobibles.com'
-                  : translation == 'mbbceb99'
+                  : translation == 'mbbceb99' || translation == 'mbb05'
                       ? 'archive.org'
                       : 'openbible.com') ||
           uri.userInfo.isNotEmpty ||
@@ -58,6 +59,9 @@ class RecordedAudioCatalog {
           (translation == 'bsb' && !uri.path.startsWith('/audio/souer/')) ||
           (translation == 'mbbceb99' &&
               !RegExp(r'^/download/cebuanobiblemp3/B\d{2}___\d{2}_[A-Za-z0-9_]+_N2CEBRPV\.mp3$')
+                  .hasMatch(uri.path)) ||
+          (translation == 'mbb05' &&
+              !RegExp(r'^/download/tagalogbibleaudio/B\d{2}___\d{2}_[A-Za-z0-9_]+_N2TGLMBB\.mp3$')
                   .hasMatch(uri.path)) ||
           !uri.path.endsWith('.mp3')) {
         throw const FormatException('Invalid audio chapter mapping.');
@@ -79,6 +83,7 @@ class RecordedAudioCatalog {
 }
 
 class AudioSignal {
+  final Uri? source;
   final bool playing, loading, completed, failed;
   final Duration? position, duration;
   final bool progressOnly;
@@ -89,7 +94,8 @@ class AudioSignal {
       this.failed = false,
       this.position,
       this.duration,
-      this.progressOnly = false});
+      this.progressOnly = false,
+      this.source});
 }
 
 abstract class ChapterAudioBackend {
@@ -222,22 +228,33 @@ class StreamingAudioBackend implements ChapterAudioBackend {
   String mediaTitle = 'Bible audio';
   String mediaAlbum = 'SELAH';
   final player = AudioPlayer();
+  Uri? _source;
+  bool _ready = false, _completionDelivered = false;
   final events = StreamController<AudioSignal>.broadcast();
   late final StreamSubscription<PlayerState> states;
   late final StreamSubscription<PlayerException> errors;
   late final StreamSubscription<Duration> positions;
   late final StreamSubscription<Duration?> durations;
   StreamingAudioBackend() {
-    states = player.playerStateStream.listen((state) => events.add(AudioSignal(
-          playing: state.playing,
-          loading: state.processingState == ProcessingState.loading ||
-              state.processingState == ProcessingState.buffering,
-          completed: state.processingState == ProcessingState.completed,
-          position: player.position,
-          duration: player.duration,
-        )));
+    states = player.playerStateStream.listen((state) {
+      if (!_ready) return;
+      if (state.processingState == ProcessingState.completed) {
+        if (_completionDelivered) return;
+        _completionDelivered = true;
+      }
+      events.add(AudioSignal(
+        source: _source,
+        playing: state.playing,
+        loading: state.processingState == ProcessingState.loading ||
+            state.processingState == ProcessingState.buffering,
+        completed: state.processingState == ProcessingState.completed,
+        position: player.position,
+        duration: player.duration,
+      ));
+    });
     void progress() => events.add(AudioSignal(
         progressOnly: true,
+        source: _source,
         position: player.position,
         duration: player.duration));
     positions = player
@@ -247,20 +264,23 @@ class StreamingAudioBackend implements ChapterAudioBackend {
         .listen((_) => progress());
     durations = player.durationStream.listen((_) => progress());
     errors = player.errorStream
-        .listen((_) => events.add(const AudioSignal(failed: true)));
+        .listen((_) => events.add(AudioSignal(failed: true, source: _source)));
   }
   @override
   Stream<AudioSignal> get signals => events.stream;
   @override
   Future<void> load(Uri url) async {
+    _ready = false;
+    _completionDelivered = false;
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.speech());
-    await player.setAudioSource(AudioSource.uri(url,
-        tag: MediaItem(
-            id: url.toString(),
-            title: mediaTitle,
-            album: mediaAlbum,
-            artist: 'SELAH • Recorded Bible narration')));
+    await player.pause();
+    await player.setLoopMode(LoopMode.off);
+    await player.setAudioSource(AudioSource.uri(url),
+        initialPosition: Duration.zero);
+    await player.seek(Duration.zero);
+    _source = url;
+    _ready = true;
   }
 
   @override
@@ -268,9 +288,18 @@ class StreamingAudioBackend implements ChapterAudioBackend {
   @override
   Future<void> pause() => player.pause();
   @override
-  Future<void> rewind() => player.seek(Duration.zero);
+  Future<void> rewind() async {
+    _completionDelivered = false;
+    await player.seek(Duration.zero);
+  }
+
   @override
-  Future<void> stop() => player.stop();
+  Future<void> stop() async {
+    _ready = false;
+    _source = null;
+    await player.stop();
+  }
+
   @override
   Future<void> dispose() async {
     await states.cancel();
@@ -320,7 +349,9 @@ class ChapterAudioController extends ChangeNotifier {
   static bool available(String translation) =>
       translation == 'web' || translation == 'bsb' || usesSpeech(translation);
   static bool usesFilipinoVoice(String translation) =>
-      translation == 'mbbceb99' || translation == 'cebocb';
+      translation == 'mbbceb99' ||
+      translation == 'cebocb' ||
+      translation == 'mbb05';
   static const newTestamentBooks = {
     'MAT',
     'MRK',
@@ -353,7 +384,8 @@ class ChapterAudioController extends ChangeNotifier {
   static bool usesSpeech(String translation, [String? book]) =>
       translation == 'nlt' ||
       translation == 'cebocb' ||
-      (translation == 'mbbceb99' && !newTestamentBooks.contains(book));
+      ((translation == 'mbbceb99' || translation == 'mbb05') &&
+          !newTestamentBooks.contains(book));
   bool get _speechScope => usesSpeech(
       _scope?.split(':').first ?? '', _scope?.split(':').last.split('.').first);
   bool get playing => status == ChapterAudioStatus.playing;
@@ -385,6 +417,7 @@ class ChapterAudioController extends ChangeNotifier {
       _backend = _speechBackend ? speechBackendFactory() : backendFactory();
       _subscription = _backend!.signals.listen((signal) {
         if (_disposed || !_acceptSignals) return;
+        if (signal.source != null && signal.source != _loaded) return;
         if (signal.failed) {
           _failed();
           return;
@@ -425,21 +458,23 @@ class ChapterAudioController extends ChangeNotifier {
     }
     if (loading && _scope == scope) return;
     if (_scope != scope) {
-      if (continuePlayback && _completed && _scope != null) {
-        // Keep the foreground media service alive at a natural chapter boundary.
-        _generation++;
-        _acceptSignals = false;
-        _loaded = null;
-        _completed = false;
-        position = Duration.zero;
-        duration = Duration.zero;
-      } else {
-        final stopping = stop();
-        final stoppedGeneration = _generation;
-        await stopping;
-        if (_disposed || stoppedGeneration != _generation) return;
-      }
+      final natural = continuePlayback && _completed && _scope != null;
+      final transition = ++_generation;
+      _acceptSignals = false;
+      _loaded = null;
+      _completed = false;
+      position = Duration.zero;
+      duration = Duration.zero;
       _scope = scope;
+      status = ChapterAudioStatus.loading;
+      error = null;
+      _emit();
+      // A track change is not a stop: keep the Android media session alive.
+      if (!natural && _backend != null) {
+        _stopping = _backend!.stop().catchError((Object _) {});
+      }
+      await _stopping;
+      if (_disposed || transition != _generation) return;
     }
     if (_backend != null && _speechBackend != usesSpeech(translation, book)) {
       final generation = _generation;
@@ -451,15 +486,7 @@ class ChapterAudioController extends ChangeNotifier {
     }
     if (_disposed) return;
     if (playing) {
-      final generation = _generation;
-      _acceptSignals = false;
-      status = ChapterAudioStatus.paused;
-      _emit();
-      try {
-        await backend.pause();
-      } catch (_) {
-        if (!_disposed && generation == _generation) _failed();
-      }
+      await pause();
       return;
     }
     final generation = ++_generation;
@@ -583,6 +610,27 @@ class ChapterAudioController extends ChangeNotifier {
       unawaited(backend.play().catchError((Object _) {
         if (!_disposed && generation == _generation) _failed();
       }));
+    } catch (_) {
+      if (!_disposed && generation == _generation) _failed();
+    }
+  }
+
+  Future<void> pause() async {
+    if (_disposed || (!playing && !loading)) return;
+    final buffering = loading;
+    final generation = ++_generation;
+    _acceptSignals = false;
+    status = ChapterAudioStatus.paused;
+    _emit();
+    try {
+      if (buffering) {
+        _loaded = null;
+        _stopping =
+            _backend?.stop().catchError((Object _) {}) ?? Future.value();
+        await _stopping;
+      } else {
+        await backend.pause();
+      }
     } catch (_) {
       if (!_disposed && generation == _generation) _failed();
     }

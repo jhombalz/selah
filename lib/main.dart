@@ -2,7 +2,7 @@ import 'features/common/selah_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+import 'features/audio/bible_media_handler.dart';
 import 'package:flutter/foundation.dart'
     show LicenseRegistry, LicenseEntryWithLineBreaks;
 import 'package:flutter/rendering.dart' show ScrollDirection;
@@ -40,13 +40,7 @@ import 'features/focus/focus_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.example.selah.bible_audio',
-    androidNotificationChannelName: 'Bible audio',
-    androidNotificationIcon: 'drawable/ic_audio_notification',
-    androidNotificationOngoing: false,
-    androidStopForegroundOnPause: false,
-  );
+  await BibleMediaHandler.initialize();
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(['Source Serif 4'],
         await rootBundle.loadString('assets/fonts/source-serif-4/OFL.txt'));
@@ -59,12 +53,14 @@ class SelahApp extends StatefulWidget {
   final UserDatabase? database;
   final UserData? initialData;
   final ChapterAudioController? audioController;
+  final BibleMediaHandler? mediaHandler;
   const SelahApp(
       {super.key,
       this.initialBible,
       this.database,
       this.initialData,
-      this.audioController});
+      this.audioController,
+      this.mediaHandler});
 
   @override
   State<SelahApp> createState() => _SelahAppState();
@@ -91,6 +87,7 @@ class _SelahAppState extends State<SelahApp> {
   final verseAnchors = <String, GlobalKey>{};
   String? selectedPassage;
   late final chapterAudio = widget.audioController ?? ChapterAudioController();
+  late final mediaHandler = widget.mediaHandler ?? BibleMediaHandler.instance;
   bool followAudio = true;
   bool paragraphs = false;
   bool redLetters = true;
@@ -265,6 +262,7 @@ class _SelahAppState extends State<SelahApp> {
 
   void audioChanged() {
     if (!mounted) return;
+    syncMediaNotification();
     if (audioFollowScope != chapterAudio.scope) {
       audioFollowScope = chapterAudio.scope;
       audioFollowSuspended = false;
@@ -294,26 +292,58 @@ class _SelahAppState extends State<SelahApp> {
   }
 
   void continueChapterAudio(String scope) {
-    if (!mounted ||
-        bible == null ||
-        scope !=
-            '${bible!.id}:${bible!.books[bookIndex].id}.${chapterIndex + 1}') {
-      return;
-    }
-    var book = bookIndex;
-    var chapter = chapterIndex + 1;
-    if (chapter >= bible!.books[book].chapters.length) {
-      book++;
-      chapter = 0;
-    }
-    // Stop at the end of Scripture; never wrap back to Genesis.
-    if (book >= bible!.books.length) {
-      unawaited(chapterAudio.stop());
-      return;
-    }
-    openChapter(book, chapter, preserveAudio: true);
-    unawaited(chapterAudio.toggle(bible!.id, bible!.books[book].id, chapter + 1,
-        continuePlayback: true, chapterText: speechChapterText(book, chapter)));
+    unawaited(skipAudioChapter(1, completedScope: scope));
+  }
+
+  Future<void> mediaMoves = Future.value();
+  Future<void> skipAudioChapter(int direction, {String? completedScope}) {
+    return mediaMoves = mediaMoves.catchError((Object _) {}).then((_) async {
+      if (!mounted || bible == null || chapterAudio.scope == null) return;
+      if (completedScope != null &&
+          (chapterAudio.scope != completedScope ||
+              completedScope !=
+                  '${bible!.id}:${bible!.books[bookIndex].id}.${chapterIndex + 1}')) {
+        return;
+      }
+      var book = bookIndex, chapter = chapterIndex + direction;
+      if (chapter < 0) {
+        book--;
+        if (book < 0) return;
+        chapter = bible!.books[book].chapters.length - 1;
+      } else if (chapter >= bible!.books[book].chapters.length) {
+        book++;
+        chapter = 0;
+      }
+      if (book >= bible!.books.length) {
+        if (completedScope != null) await chapterAudio.stop();
+        return;
+      }
+      openChapter(book, chapter, preserveAudio: true);
+      await chapterAudio.toggle(bible!.id, bible!.books[book].id, chapter + 1,
+          continuePlayback: completedScope != null,
+          chapterText: speechChapterText(book, chapter));
+    });
+  }
+
+  void syncMediaNotification() {
+    if (bible == null || mediaHandler == null) return;
+    final active = chapterAudio.scope != null &&
+        chapterAudio.status != ChapterAudioStatus.error;
+    final speech = ChapterAudioController.usesSpeech(
+        bible!.id, bible!.books[bookIndex].id);
+    mediaHandler!.update(
+        id: active ? chapterAudio.scope : null,
+        title: '${bible!.books[bookIndex].name} ${chapterIndex + 1}',
+        edition: bible!.abbreviation,
+        playing: chapterAudio.playing || chapterAudio.loading,
+        loading: chapterAudio.loading,
+        hasPrevious: bookIndex > 0 || chapterIndex > 0,
+        hasNext: bookIndex < bible!.books.length - 1 ||
+            chapterIndex < bible!.books[bookIndex].chapters.length - 1,
+        position: speech ? Duration.zero : chapterAudio.position,
+        duration: speech || chapterAudio.duration == Duration.zero
+            ? null
+            : chapterAudio.duration);
   }
 
   void saveAudioPosition() {
@@ -412,7 +442,7 @@ class _SelahAppState extends State<SelahApp> {
               title: const Text('Bible audio'),
               content: SingleChildScrollView(
                   child: SelectableText(
-                      'NLT uses an English text-to-speech voice. MBBCEB99 uses Faith Comes By Hearing CEBRPV recordings hosted on Internet Archive for the New Testament (internet required). Its Old Testament and Open APD/OCCB use a Filipino/Tagalog voice to read Cebuano; pronunciation may be inaccurate. All speech uses the selected chapter text. A matching device/browser voice is required; offline speech depends on an installed offline voice. Resume starts near the paused word when the voice supports progress, otherwise the current segment repeats. Auto-scroll follows speech progress; manual scrolling suspends following. Speech may stop when the browser or app is suspended.\n\nRecorded narration is available for WEB, BSB and the MBBCEB99 New Testament and requires an internet connection.\n\n${[
+                      'Tagalog MBB05 uses TGLMBB recordings from Internet Archive for the New Testament and a Filipino voice for Old Testament TTS. NLT uses an English text-to-speech voice. MBBCEB99 uses Faith Comes By Hearing CEBRPV recordings hosted on Internet Archive for the New Testament (internet required). Its Old Testament and Open APD/OCCB use a Filipino/Tagalog voice to read Cebuano; pronunciation may be inaccurate. All speech uses the selected chapter text. A matching device/browser voice is required; offline speech depends on an installed offline voice. Resume starts near the paused word when the voice supports progress, otherwise the current segment repeats. Auto-scroll follows speech progress; manual scrolling suspends following. Speech may stop when the browser or app is suspended.\n\nRecorded narration is available for WEB, BSB and the MBBCEB99/MBB05 New Testaments and requires an internet connection.\n\n${[
                 catalog,
                 ...catalog.alternatives.values
               ].map((edition) => '${edition.translation.toUpperCase()} · ${edition.narrator}\n${edition.editionNote}\n${edition.license}\nSource: ${edition.source}').join('\n\n')}')),
@@ -734,6 +764,17 @@ class _SelahAppState extends State<SelahApp> {
     unawaited(focus.start());
     chapterAudio.addListener(audioChanged);
     chapterAudio.onCompleted = continueChapterAudio;
+    mediaHandler?.onPlay = () async {
+      if (mounted &&
+          bible != null &&
+          !chapterAudio.playing &&
+          !chapterAudio.loading) {
+        await toggleReaderAudio();
+      }
+    };
+    mediaHandler?.onPause = chapterAudio.pause;
+    mediaHandler?.onStop = chapterAudio.stop;
+    mediaHandler?.onSkip = (direction) => skipAudioChapter(direction);
     database = widget.database ?? UserDatabase.local();
     assessments = AssessmentController(database)..start();
     dailyVerses = DailyVerseRepository(database: database);
@@ -795,6 +836,7 @@ class _SelahAppState extends State<SelahApp> {
     dailyVerses.dispose();
     chapterAudio.removeListener(audioChanged);
     chapterAudio.onCompleted = null;
+    mediaHandler?.unbind();
     chapterAudio.dispose();
     readerScroll.dispose();
     homeScroll.dispose();
@@ -1551,7 +1593,8 @@ class _SelahAppState extends State<SelahApp> {
   Future<void> toggleReaderAudio() async {
     final edition = bible!.id;
     final book = bookIndex, chapter = chapterIndex;
-    if (ChapterAudioController.usesFilipinoVoice(edition) &&
+    if (edition != 'mbb05' &&
+        ChapterAudioController.usesFilipinoVoice(edition) &&
         ChapterAudioController.usesSpeech(edition, bible!.books[book].id) &&
         !filipinoVoiceAccepted) {
       if (speechNoticeOpen) return;
