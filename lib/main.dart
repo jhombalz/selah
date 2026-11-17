@@ -412,7 +412,7 @@ class _SelahAppState extends State<SelahApp> {
               title: const Text('Bible audio'),
               content: SingleChildScrollView(
                   child: SelectableText(
-                      'NLT uses an English text-to-speech voice. MBBCEB99 and Open APD/OCCB can use a Filipino/Tagalog voice to read the Cebuano text; pronunciation may be inaccurate. All speech uses the selected chapter text. A matching device/browser voice is required; offline speech depends on an installed offline voice. Resume starts near the paused word when the voice supports progress, otherwise the current segment repeats. Auto-scroll follows speech progress; manual scrolling suspends following. Speech may stop when the browser or app is suspended.\n\nRecorded narration is available for WEB and BSB and requires an internet connection.\n\n${[
+                      'NLT uses an English text-to-speech voice. MBBCEB99 uses Faith Comes By Hearing CEBRPV recordings hosted on Internet Archive for the New Testament (internet required). Its Old Testament and Open APD/OCCB use a Filipino/Tagalog voice to read Cebuano; pronunciation may be inaccurate. All speech uses the selected chapter text. A matching device/browser voice is required; offline speech depends on an installed offline voice. Resume starts near the paused word when the voice supports progress, otherwise the current segment repeats. Auto-scroll follows speech progress; manual scrolling suspends following. Speech may stop when the browser or app is suspended.\n\nRecorded narration is available for WEB, BSB and the MBBCEB99 New Testament and requires an internet connection.\n\n${[
                 catalog,
                 ...catalog.alternatives.values
               ].map((edition) => '${edition.translation.toUpperCase()} · ${edition.narrator}\n${edition.editionNote}\n${edition.license}\nSource: ${edition.source}').join('\n\n')}')),
@@ -1497,7 +1497,8 @@ class _SelahAppState extends State<SelahApp> {
           paragraphs: paragraphs,
           redLetters: redLetters,
           speechSpeed: chapterAudio.speechSpeed,
-          onSpeechSpeed: ChapterAudioController.usesSpeech(bible!.id)
+          onSpeechSpeed: ChapterAudioController.usesSpeech(
+                  bible!.id, bible!.books[bookIndex].id)
               ? (value) => unawaited(changeSpeechSpeed(value))
               : null,
           onSize: (value, persist) {
@@ -1518,7 +1519,7 @@ class _SelahAppState extends State<SelahApp> {
           }));
 
   String? speechChapterText(int book, int chapter) => ChapterAudioController
-          .usesSpeech(bible!.id)
+          .usesSpeech(bible!.id, bible!.books[book].id)
       ? '${bible!.books[book].name} ${chapter + 1}. ${bible!.books[book].chapters[chapter].map((v) => v.text).join(' ')}'
       : null;
 
@@ -1530,7 +1531,8 @@ class _SelahAppState extends State<SelahApp> {
     final book = bookIndex, chapter = chapterIndex;
     chapterAudio.speechSpeed = value;
     save(() => database.setPreferences({'speechSpeed': '$value'}));
-    if (wasPlaying && ChapterAudioController.usesSpeech(edition)) {
+    if (wasPlaying &&
+        ChapterAudioController.usesSpeech(edition, bible!.books[book].id)) {
       await chapterAudio.toggle(edition, bible!.books[book].id, chapter + 1,
           chapterText: speechChapterText(book, chapter));
       if (!mounted ||
@@ -1550,6 +1552,7 @@ class _SelahAppState extends State<SelahApp> {
     final edition = bible!.id;
     final book = bookIndex, chapter = chapterIndex;
     if (ChapterAudioController.usesFilipinoVoice(edition) &&
+        ChapterAudioController.usesSpeech(edition, bible!.books[book].id) &&
         !filipinoVoiceAccepted) {
       if (speechNoticeOpen) return;
       speechNoticeOpen = true;
@@ -1588,7 +1591,8 @@ class _SelahAppState extends State<SelahApp> {
   }
 
   String get audioLabel {
-    final speech = ChapterAudioController.usesSpeech(bible!.id);
+    final speech = ChapterAudioController.usesSpeech(
+        bible!.id, bible!.books[bookIndex].id);
     final action = chapterAudio.playing
         ? 'Pause'
         : chapterAudio.status == ChapterAudioStatus.paused

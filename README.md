@@ -2,9 +2,18 @@
 
 Pause. Reflect. Grow.
 
-[Download SELAH Android v0.7.6](https://github.com/jhombalz/selah/releases/download/v0.7.6/selah-v0.7.6-android.apk)
+[Download SELAH Android v0.7.7](https://github.com/jhombalz/selah/releases/download/v0.7.7/selah-v0.7.7-android.apk)
 — universal release-mode APK, signed with the current development key for
 personal testing. Install over the previous APK to keep local data.
+
+Version 0.7.7 streams MBBCEB99 New Testament recordings from the Internet Archive
+`cebuanobiblemp3` collection (CEBRPV, attributed to Faith Comes By Hearing).
+All 260 New Testament chapters have explicit mappings. Internet is required;
+audio is not bundled or downloaded for offline use. MBBCEB99 Old Testament
+retains Filipino-voice TTS, while NLT retains English TTS throughout.
+Recordings may differ from the supplied text and provide no verse timestamps.
+The archive uploader supplies no explicit reuse license; source availability
+does not grant publisher permission. Source notices remain in Bible audio info.
 
 Version 0.7.6 sets TTS to normal 1× speed on Android and web. Open **AA →
 Reading preferences → Text-to-speech speed** to select 0.75×, 1×, 1.25× or

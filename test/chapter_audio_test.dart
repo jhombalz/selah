@@ -51,6 +51,51 @@ void main() {
   late RecordedAudioCatalog catalog;
   setUpAll(() async => catalog = await RecordedAudioCatalog.load());
 
+  test('MBBCEB99 maps exactly the 260 New Testament chapters to archive audio',
+      () async {
+    final bible = await Bible.load();
+    expect(catalog.alternatives['mbbceb99']!.chapters.length, 260);
+    for (final book in bible.books) {
+      final recorded =
+          ChapterAudioController.newTestamentBooks.contains(book.id);
+      for (var c = 1; c <= book.chapters.length; c++) {
+        final url = catalog.chapter('mbbceb99', book.id, c);
+        expect(url != null, recorded);
+        if (url != null) expect(url.host, 'archive.org');
+      }
+      expect(ChapterAudioController.usesSpeech('mbbceb99', book.id), !recorded);
+      expect(ChapterAudioController.usesSpeech('nlt', book.id), isTrue);
+    }
+    expect(catalog.chapter('mbbceb99', 'MAT', 2)!.path,
+        '/download/cebuanobiblemp3/B01___02_Matthew_______N2CEBRPV.mp3');
+  });
+
+  test('MBB switches from OT speech to NT recording; NLT retains speech',
+      () async {
+    final speech1 = FakeAudioBackend(), speech2 = FakeAudioBackend();
+    final recording = FakeAudioBackend();
+    var speechCreations = 0;
+    final audio = ChapterAudioController(
+        speechBackendFactory: () => speechCreations++ == 0 ? speech1 : speech2,
+        backendFactory: () => recording,
+        catalogLoader: () async => catalog);
+    addTearDown(audio.dispose);
+    await audio.toggle('mbbceb99', 'MAL', 4,
+        chapterText: 'Cebuano Old Testament');
+    expect(speech1.loads.single.scheme, 'data');
+    speech1.events.add(const AudioSignal(completed: true));
+    await audio.toggle('mbbceb99', 'MAT', 1, continuePlayback: true);
+    expect(recording.loads.last, catalog.chapter('mbbceb99', 'MAT', 1));
+    recording.events.add(const AudioSignal(completed: true));
+    final stops = recording.stops;
+    await audio.toggle('mbbceb99', 'MAT', 2, continuePlayback: true);
+    expect(recording.loads.last, catalog.chapter('mbbceb99', 'MAT', 2));
+    expect(recording.stops, stops);
+    await audio.toggle('nlt', 'MAT', 2, chapterText: 'Selected NLT words');
+    expect(speech2.loads.single.data!.contentAsString(), 'Selected NLT words');
+    expect(audio.playing, isTrue);
+  });
+
   test('Late TTS playback events cannot undo a pause', () async {
     final speech = FakeAudioBackend();
     final audio = ChapterAudioController(speechBackendFactory: () => speech);

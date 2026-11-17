@@ -20,7 +20,7 @@ class RecordedAudioCatalog {
       {this.translation = 'web', this.alternatives = const {}});
   static Future<RecordedAudioCatalog> load() async {
     final editions = <String, RecordedAudioCatalog>{};
-    for (final id in ['web', 'bsb']) {
+    for (final id in ['web', 'bsb', 'mbbceb99']) {
       editions[id] = RecordedAudioCatalog.fromJson(
           jsonDecode(await rootBundle.loadString('assets/audio/$id.json'))
               as Map<String, dynamic>);
@@ -28,12 +28,17 @@ class RecordedAudioCatalog {
     final web = editions['web']!;
     return RecordedAudioCatalog(
         web.chapters, web.narrator, web.source, web.license, web.editionNote,
-        alternatives: {'bsb': editions['bsb']!});
+        alternatives: {
+          'bsb': editions['bsb']!,
+          'mbbceb99': editions['mbbceb99']!
+        });
   }
 
   factory RecordedAudioCatalog.fromJson(Map<String, dynamic> json) {
     final translation = json['translation'] as String;
-    if (translation != 'web' && translation != 'bsb') {
+    if (translation != 'web' &&
+        translation != 'bsb' &&
+        translation != 'mbbceb99') {
       throw const FormatException('Unexpected audio edition.');
     }
     final chapters = <String, Uri>{};
@@ -44,11 +49,16 @@ class RecordedAudioCatalog {
           uri.host !=
               (translation == 'web'
                   ? 'www.publicdomainaudiobibles.com'
-                  : 'openbible.com') ||
+                  : translation == 'mbbceb99'
+                      ? 'archive.org'
+                      : 'openbible.com') ||
           uri.userInfo.isNotEmpty ||
           uri.hasQuery ||
           uri.hasFragment ||
           (translation == 'bsb' && !uri.path.startsWith('/audio/souer/')) ||
+          (translation == 'mbbceb99' &&
+              !RegExp(r'^/download/cebuanobiblemp3/B\d{2}___\d{2}_[A-Za-z0-9_]+_N2CEBRPV\.mp3$')
+                  .hasMatch(uri.path)) ||
           !uri.path.endsWith('.mp3')) {
         throw const FormatException('Invalid audio chapter mapping.');
       }
@@ -311,9 +321,41 @@ class ChapterAudioController extends ChangeNotifier {
       translation == 'web' || translation == 'bsb' || usesSpeech(translation);
   static bool usesFilipinoVoice(String translation) =>
       translation == 'mbbceb99' || translation == 'cebocb';
-  static bool usesSpeech(String translation) =>
-      translation == 'nlt' || usesFilipinoVoice(translation);
-  bool get _speechScope => usesSpeech(_scope?.split(':').first ?? '');
+  static const newTestamentBooks = {
+    'MAT',
+    'MRK',
+    'LUK',
+    'JHN',
+    'ACT',
+    'ROM',
+    '1CO',
+    '2CO',
+    'GAL',
+    'EPH',
+    'PHP',
+    'COL',
+    '1TH',
+    '2TH',
+    '1TI',
+    '2TI',
+    'TIT',
+    'PHM',
+    'HEB',
+    'JAS',
+    '1PE',
+    '2PE',
+    '1JN',
+    '2JN',
+    '3JN',
+    'JUD',
+    'REV'
+  };
+  static bool usesSpeech(String translation, [String? book]) =>
+      translation == 'nlt' ||
+      translation == 'cebocb' ||
+      (translation == 'mbbceb99' && !newTestamentBooks.contains(book));
+  bool get _speechScope => usesSpeech(
+      _scope?.split(':').first ?? '', _scope?.split(':').last.split('.').first);
   bool get playing => status == ChapterAudioStatus.playing;
   bool get loading => status == ChapterAudioStatus.loading;
   void _emit() {
@@ -399,7 +441,7 @@ class ChapterAudioController extends ChangeNotifier {
       }
       _scope = scope;
     }
-    if (_backend != null && _speechBackend != usesSpeech(translation)) {
+    if (_backend != null && _speechBackend != usesSpeech(translation, book)) {
       final generation = _generation;
       await _subscription?.cancel();
       final old = _backend!;
@@ -427,14 +469,15 @@ class ChapterAudioController extends ChangeNotifier {
     _emit();
     try {
       await _stopping;
-      if (usesSpeech(translation) && backend is DeviceSpeechBackend) {
+      if (usesSpeech(translation, book) && backend is DeviceSpeechBackend) {
         await (backend as DeviceSpeechBackend).setSpeed(speechSpeed);
         if (_disposed || generation != _generation) return;
       }
-      final catalog =
-          usesSpeech(translation) ? null : await (_catalog ??= catalogLoader());
+      final catalog = usesSpeech(translation, book)
+          ? null
+          : await (_catalog ??= catalogLoader());
       if (_disposed || generation != _generation) return;
-      final url = usesSpeech(translation)
+      final url = usesSpeech(translation, book)
           ? (chapterText == null || chapterText.trim().isEmpty
               ? null
               : Uri.dataFromString(chapterText,
